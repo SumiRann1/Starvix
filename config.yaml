@@ -1,0 +1,14 @@
+current_model: "google:gemini-2.5-flash"
+temperature: 0.7
+workspace_dir: "workspaces"
+data_dir: "data"
+
+models:
+  gpt_oss_20b: "groq:openai/gpt-oss-20b"
+  gpt_oss_120b: "groq:openai/gpt-oss-120b"
+  qwen_3_8_27b: "groq:qwen/qwen3.8-27b"
+  gemini_flash_2_5_lite: "google:gemini-2.5-flash-lite"
+  gemini_flash_2_5: "google:gemini-2.5-flash"
+  # gemini_flash_3_8: "google:gemini-3.8-flash"
+  # gemma_4_31b: "google:gemma-4-31b-it"
+  nemotron_3_ultra: "openrouter:nvidia/nemotron-3-ultra-550b-a55b:free"

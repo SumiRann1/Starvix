@@ -1,0 +1,36 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "agent-cli"
+version = "0.1.0"
+description = "Modular multi-provider AI chatbot and agent CLI"
+readme = "README.md"
+requires-python = ">=3.10"
+license = "MIT"
+keywords = ["ai", "chatbot", "cli", "langchain", "groq", "openrouter", "gemini"]
+dependencies = [
+    "langchain>=0.3.0",
+    "langchain-core>=0.3.0",
+    "langchain-google-genai>=2.0.0",
+    "langchain-groq>=0.1.0",
+    "langchain-openrouter>=0.2.0",
+    "langgraph>=0.2.0",
+    "pydantic>=2.0.0",
+    "python-dotenv>=1.0.0",
+    "pyyaml>=6.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0.0",
+    "ruff>=0.4.0",
+]
+
+# Uncomment when CLI entry point is defined:
+# [project.scripts]
+# agent-cli = "agent_cli.main:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
