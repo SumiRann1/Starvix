@@ -1,20 +1,27 @@
-from langgraph.graph import START, END, StateGraph
 from langgraph.checkpoint.memory import MemorySaver
+from langgraph.graph import START, StateGraph
+from langgraph.prebuilt import ToolNode, tools_condition
 
-from .node import chat_node
+from .node import make_chat_node
 from .state import AgentState
+from .tool import get_tools_sync
 
-def build_graph(state=AgentState):
 
+def build_graph(state=AgentState, tools=None):
+    #Agar tools diye nahi gayenge toh default tools use honge iski wajah se error aa rahi thi
+    if tools is None:
+        tools = get_tools_sync()
+    
     graph_builder = StateGraph(state)
 
-    graph_builder.add_node("chat", chat_node)
+    # Ab chat node banega tools ke saath
+    chat_node_instance = make_chat_node(tools)
+    graph_builder.add_node("chat", chat_node_instance)
+    
+    graph_builder.add_node("tools", ToolNode(tools))
+
     graph_builder.add_edge(START, "chat")
-    graph_builder.add_edge("chat", END)
+    graph_builder.add_conditional_edges("chat", tools_condition)
+    graph_builder.add_edge("tools", "chat")
 
     return graph_builder.compile(checkpointer=MemorySaver())
-
-#Running the graph
-# if __name__ == "__main__":
-#     graph = build_graph()
-#     print(graph.invoke({"query": "Hello"}))

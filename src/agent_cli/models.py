@@ -1,7 +1,11 @@
+import logging
 import os
+
 from langchain.chat_models import init_chat_model
 
 from .config import settings
+
+logging.getLogger("langchain_google_genai").setLevel(logging.ERROR)
 
 PROVIDERS = {
     "groq": {

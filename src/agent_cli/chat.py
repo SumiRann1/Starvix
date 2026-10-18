@@ -1,7 +1,6 @@
-from pathlib import Path
-import sys
 import asyncio
 import time
+
 from langchain_core.messages import HumanMessage
 
 CYAN = "\033[96m"
@@ -12,12 +11,11 @@ BOLD = "\033[1m"
 DIM = "\033[2m"
 RESET = "\033[0m"
 
-ROOT = Path(__file__).resolve().parent.parent
-sys.path.append(str(ROOT / "src"))
-sys.path.append(str(ROOT))
+from .config import set_current_model, settings
+from .graph import build_graph
+from .tool import get_tools_sync
 
-from agent_cli import AgentState, build_graph, settings, set_current_model
-
+list_of_tools = get_tools_sync()
 
 def _handle_command(input_query: str, config: dict) -> bool:
     """Handle slash commands. Returns True if handled, False otherwise."""
@@ -64,9 +62,29 @@ def _handle_command(input_query: str, config: dict) -> bool:
         return True
 
 
+def _extract_chunk_text(chunk) -> str:
+    """Extract plain text from a streaming chunk across different providers."""
+    if not chunk:
+        return ""
+    if hasattr(chunk, "text") and chunk.text:
+        return str(chunk.text)
+    content = getattr(chunk, "content", None)
+    if isinstance(content, str):
+        return content
+    elif isinstance(content, list):
+        parts = []
+        for item in content:
+            if isinstance(item, str):
+                parts.append(item)
+            elif isinstance(item, dict) and "text" in item:
+                parts.append(str(item["text"]))
+        return "".join(parts)
+    return ""
+
+
 async def main():
     CONFIG = {"configurable": {"thread_id": 1, "model": settings.current_model}}
-    graph = build_graph()
+    graph = build_graph(tools=list_of_tools)
     
     print(f"{BOLD}ChatBot CLI ready!{RESET} Type {CYAN}/help{RESET} for commands or {CYAN}/exit{RESET} to quit.\n")
     
@@ -91,6 +109,7 @@ async def main():
 
         start_time = time.perf_counter()
         current_model_info = {}
+        assistant_started = False
         print("\n" + "─" * 60)
         async for event in graph.astream_events(input={"messages": [HumanMessage(content=user_query)]}, config=CONFIG, version="v2"):
             kind = event["event"]
@@ -111,15 +130,20 @@ async def main():
                     "provider": meta.get("ls_provider", ""),
                     "temp": meta.get("ls_temperature", ""),
                 }
-                print(f"{BOLD}Assistant:{RESET} ", end="", flush=True)
+                assistant_started = False
 
             elif kind == "on_chat_model_stream":
                 chunk = data.get("chunk")
-                if chunk and chunk.content:
-                    print(chunk.content, end="", flush=True)
+                text = _extract_chunk_text(chunk)
+                if text:
+                    if not assistant_started:
+                        print(f"{BOLD}Assistant:{RESET} ", end="", flush=True)
+                        assistant_started = True
+                    print(text, end="", flush=True)
 
             elif kind == "on_chat_model_end":
-                print() 
+                if assistant_started:
+                    print() 
                 output = data.get("output")
                 usage = getattr(output, "usage_metadata", {}) or {}
                 resp_meta = getattr(output, "response_metadata", {}) or {}
@@ -146,7 +170,13 @@ async def main():
                 print(f"\n{YELLOW}[Tool: {name}] Input:{RESET} {tool_input}")
 
             elif kind == "on_tool_end":
-                tool_output = data.get("output", "")
+                tool_out = data.get("output", "")
+                if hasattr(tool_out, "text") and tool_out.text:
+                    tool_output = tool_out.text
+                elif hasattr(tool_out, "content") and tool_out.content:
+                    tool_output = tool_out.content
+                else:
+                    tool_output = str(tool_out) if tool_out else ""
                 print(f"{YELLOW}[Tool: {name}] Output:{RESET} {tool_output}")
 
             elif kind == "on_chain_end":

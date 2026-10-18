@@ -1,2 +1,42 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Caches
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.coverage
+htmlcov/
+
+# Environments & Secrets
 .env
-.pytest_cache
+.env.*
+!.env.example
+venv/
+.venv/
+env/
+
+# Distribution / Packaging
+build/
+dist/
+*.egg-info/
+src/*.egg-info/
+
+# Logs & Scratch files
+*.log
+s.txt
+
+# Editor & OS artifacts
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Database
+*.db
+*.sqlite3
+
+
+*.zip

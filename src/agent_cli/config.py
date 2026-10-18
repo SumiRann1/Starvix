@@ -1,8 +1,8 @@
-from typing import Dict
 from pathlib import Path
+
+import yaml
 from dotenv import load_dotenv
 from pydantic import BaseModel, Field
-import yaml
 
 ROOT = Path(__file__).resolve().parent.parent.parent
 
@@ -11,7 +11,7 @@ class Settings(BaseModel):
     temperature: float = Field(ge=0, le=2)
     workspace_dir: Path
     data_dir: Path
-    models: Dict[str, str]
+    models: dict[str, str]
     
 def load_settings() -> Settings:
     load_dotenv(ROOT/".env")

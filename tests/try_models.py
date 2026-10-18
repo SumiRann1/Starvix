@@ -1,12 +1,11 @@
-from pathlib import Path
 import sys
+from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.append(str(ROOT / "src"))
 sys.path.append(str(ROOT))
 
-from agent_cli import get_model, list_models, set_current_model, settings
-
+from agent_cli import get_model, set_current_model, settings
 
 #TESTING THE MODEL SWITCH AND response
 print(settings.current_model)
