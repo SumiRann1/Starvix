@@ -2,6 +2,7 @@
 
 __version__ = "0.1.0"
 
+from .chat import get_all_threads
 from .config import set_current_model, settings
 from .graph import build_graph
 from .models import get_model, list_models
@@ -16,6 +17,7 @@ __all__ = [
     "build_graph",
     "chat_node",
     "client",
+    "get_all_threads",
     "get_model",
     "get_tools",
     "get_tools_sync",

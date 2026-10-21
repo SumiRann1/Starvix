@@ -7,7 +7,7 @@ from .state import AgentState
 from .tool import get_tools_sync
 
 
-def build_graph(state=AgentState, tools=None):
+def build_graph(state=AgentState, tools=None, checkpointer=None):
     #Agar tools diye nahi gayenge toh default tools use honge iski wajah se error aa rahi thi
     if tools is None:
         tools = get_tools_sync()
@@ -24,4 +24,7 @@ def build_graph(state=AgentState, tools=None):
     graph_builder.add_conditional_edges("chat", tools_condition)
     graph_builder.add_edge("tools", "chat")
 
-    return graph_builder.compile(checkpointer=MemorySaver())
+    if checkpointer is None:
+        checkpointer=MemorySaver()
+
+    return graph_builder.compile(checkpointer=checkpointer)

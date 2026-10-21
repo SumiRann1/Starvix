@@ -35,8 +35,8 @@ s.txt
 Thumbs.db
 
 # Database
-*.db
-*.sqlite3
+data/*.sqlite*
+data/*.db
 
 
 *.zip

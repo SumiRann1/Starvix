@@ -1,8 +1,9 @@
+import sqlite3
 from unittest.mock import Mock, patch
 
 import pytest
 
-from agent_cli.chat import _extract_chunk_text, _handle_command, main
+from agent_cli.chat import _extract_chunk_text, _handle_command, get_all_threads, main
 
 
 class DummyChunk:
@@ -11,6 +12,29 @@ class DummyChunk:
             self.text = text
         if content is not None:
             self.content = content
+
+
+def test_get_all_threads_nonexistent_file(tmp_path):
+    assert get_all_threads(tmp_path / "does_not_exist.sqlite") == []
+
+
+def test_get_all_threads_no_table(tmp_path):
+    db_file = tmp_path / "empty.sqlite"
+    with sqlite3.connect(db_file) as conn:
+        conn.execute("CREATE TABLE other_table (id INT);")
+    assert get_all_threads(db_file) == []
+
+
+def test_get_all_threads_with_data(tmp_path):
+    db_file = tmp_path / "valid.sqlite"
+    with sqlite3.connect(db_file) as conn:
+        conn.execute("CREATE TABLE checkpoints (thread_id TEXT NOT NULL);")
+        conn.execute("INSERT INTO checkpoints VALUES ('thread-b');")
+        conn.execute("INSERT INTO checkpoints VALUES ('thread-a');")
+        conn.execute("INSERT INTO checkpoints VALUES ('thread-b');")
+        conn.execute("INSERT INTO checkpoints VALUES ('');")
+    threads = get_all_threads(db_file)
+    assert threads == ["thread-a", "thread-b"]
 
 
 def test_extract_chunk_text_none_and_empty():
@@ -58,6 +82,7 @@ def test_handle_command_help(capsys):
     captured = capsys.readouterr()
     assert "/help" in captured.out
     assert "/switch" in captured.out
+    assert "/threads" in captured.out
 
 
 def test_handle_command_models(capsys):
@@ -107,6 +132,96 @@ def test_handle_command_exit():
     assert _handle_command("/quit", config) is False
 
 
+def test_handle_command_thread(capsys):
+    config = {"configurable": {"thread_id": "my-active-thread"}}
+    handled = _handle_command("/thread", config)
+    assert handled is True
+    captured = capsys.readouterr()
+    assert "my-active-thread" in captured.out
+
+
+def test_handle_command_threads_empty(capsys):
+    config = {"configurable": {"thread_id": "temp-thread"}}
+    with patch("agent_cli.chat.get_all_threads", return_value=[]):
+        handled = _handle_command("/threads", config)
+        assert handled is True
+        captured = capsys.readouterr()
+        assert "(No saved threads found)" in captured.out
+        assert "Current unsaved session:" in captured.out
+        assert "temp-thread" in captured.out
+
+
+def test_handle_command_threads_with_active_saved(capsys):
+    config = {"configurable": {"thread_id": "thread-2"}}
+    with patch("agent_cli.chat.get_all_threads", return_value=["thread-1", "thread-2"]):
+        handled = _handle_command("/threads", config)
+        assert handled is True
+        captured = capsys.readouterr()
+        assert "thread-1" in captured.out
+        assert "thread-2" in captured.out
+        assert "(current)" in captured.out
+
+
+def test_handle_command_threads_with_active_unsaved(capsys):
+    config = {"configurable": {"thread_id": "unsaved-thread"}}
+    with patch("agent_cli.chat.get_all_threads", return_value=["thread-1"]):
+        handled = _handle_command("/threads", config)
+        assert handled is True
+        captured = capsys.readouterr()
+        assert "thread-1" in captured.out
+        assert "Current unsaved session:" in captured.out
+        assert "unsaved-thread" in captured.out
+
+
+def test_handle_command_all_threads_alias(capsys):
+    config = {"configurable": {"thread_id": "thread-1"}}
+    with patch("agent_cli.chat.get_all_threads", return_value=["thread-1"]):
+        handled = _handle_command("/all-threads", config)
+        assert handled is True
+        captured = capsys.readouterr()
+        assert "thread-1" in captured.out
+        assert "(current)" in captured.out
+
+
+def test_handle_command_new_default(capsys):
+    config = {"configurable": {"thread_id": "old-thread"}}
+    handled = _handle_command("/new", config)
+    assert handled is True
+    assert config["configurable"]["thread_id"].startswith("session-")
+    assert config["configurable"]["thread_id"] != "old-thread"
+    captured = capsys.readouterr()
+    assert "Started new thread" in captured.out
+
+
+def test_handle_command_new_named(capsys):
+    config = {"configurable": {"thread_id": "old-thread"}}
+    handled = _handle_command("/new custom-named-thread", config)
+    assert handled is True
+    assert config["configurable"]["thread_id"] == "custom-named-thread"
+    captured = capsys.readouterr()
+    assert "Started new thread" in captured.out
+    assert "custom-named-thread" in captured.out
+
+
+def test_handle_command_switch_thread(capsys):
+    config = {"configurable": {"thread_id": "thread-a"}}
+    handled = _handle_command("/switch-thread thread-b", config)
+    assert handled is True
+    assert config["configurable"]["thread_id"] == "thread-b"
+    captured = capsys.readouterr()
+    assert "Switched to thread" in captured.out
+    assert "thread-b" in captured.out
+
+
+def test_handle_command_switch_thread_missing_arg(capsys):
+    config = {"configurable": {"thread_id": "thread-a"}}
+    handled = _handle_command("/switch-thread", config)
+    assert handled is True
+    assert config["configurable"]["thread_id"] == "thread-a"
+    captured = capsys.readouterr()
+    assert "Usage: /switch-thread <thread_id>" in captured.out
+
+
 def test_handle_command_unknown(capsys):
     config = {"configurable": {"model": "test"}}
     handled = _handle_command("/foobar", config)
@@ -124,6 +239,21 @@ async def test_main_exits_on_eof(capsys):
         await main()
     captured = capsys.readouterr()
     assert "Exiting chat..." in captured.out
+    assert "Thread:" in captured.out
+    assert "session-" in captured.out
+
+
+@pytest.mark.anyio
+async def test_main_with_custom_thread(capsys):
+    with (
+        patch("builtins.input", side_effect=EOFError),
+        patch("agent_cli.chat.build_graph"),
+    ):
+        await main(thread_id="custom-thread-999")
+    captured = capsys.readouterr()
+    assert "Thread:" in captured.out
+    assert "custom-thread-999" in captured.out
+
 
 
 @pytest.mark.anyio

@@ -17,6 +17,7 @@ dependencies = [
     "PyYAML",
     "python-dotenv",
     "langchain-mcp-adapters",
+    "langgraph-checkpoint-sqlite",
 ]
 
 [project.optional-dependencies]
