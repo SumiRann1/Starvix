@@ -9,6 +9,16 @@ models:
   qwen_3_8_27b: "groq:qwen/qwen3.8-27b"
   gemini_flash_2_5_lite: "google:gemini-2.5-flash-lite"
   gemini_flash_2_5: "google:gemini-2.5-flash"
-  # gemini_flash_3_8: "google:gemini-3.8-flash"
-  # gemma_4_31b: "google:gemma-4-31b-it"
   nemotron_3_ultra: "openrouter:nvidia/nemotron-3-ultra-550b-a55b:free"
+
+# Statusbar appearance & theme
+# Presets: tokyo_night, catppuccin, dracula, nord, monokai, cyberpunk, matrix, minimal
+statusbar:
+  theme: "catppuccin"
+  # Optional custom color overrides (hex e.g. #1e1e2e or ANSI color name):
+  # bg: "#1a1b26"
+  # fg: "#c0caf5"
+  # model_color: "#9ece6a"
+  # thread_color: "#7aa2f7"
+  # memory_color: "#e0af68"
+  # help_color: "#bb9af7"

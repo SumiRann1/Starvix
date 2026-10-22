@@ -390,3 +390,50 @@ async def test_main_handles_mcp_tools_failure(capsys):
     captured = capsys.readouterr()
     assert "Warning: MCP tools unavailable: MCP server connection refused" in captured.out
 
+
+def test_handle_command_copy_no_response(capsys):
+    config = {"configurable": {"thread_id": "test"}}
+    handled = _handle_command("/copy", config, last_response=None)
+    assert handled is True
+    captured = capsys.readouterr()
+    assert "No assistant response available to copy." in captured.out
+
+
+def test_handle_command_copy_success(capsys):
+    config = {"configurable": {"thread_id": "test"}}
+    with patch("agent_cli.chat.copy_to_clipboard", return_value=True):
+        handled = _handle_command("/copy", config, last_response="Hello AI")
+        assert handled is True
+        captured = capsys.readouterr()
+        assert "Copied last response to clipboard!" in captured.out
+
+
+def test_handle_command_copy_failure(capsys):
+    config = {"configurable": {"thread_id": "test"}}
+    with patch("agent_cli.chat.copy_to_clipboard", return_value=False):
+        handled = _handle_command("/copy", config, last_response="Hello AI")
+        assert handled is True
+        captured = capsys.readouterr()
+        assert "Warning: Could not copy to clipboard" in captured.out
+
+
+def test_handle_command_export_success(capsys, tmp_path):
+    config = {"configurable": {"thread_id": "thread-exp"}}
+    mock_file = tmp_path / "conversation_thread-exp.md"
+    with patch("agent_cli.chat.export_thread_to_markdown", return_value=mock_file):
+        handled = _handle_command("/export my_exports", config)
+        assert handled is True
+        captured = capsys.readouterr()
+        assert "Exported conversation to:" in captured.out
+        assert str(mock_file) in captured.out
+
+
+def test_handle_command_export_failure(capsys):
+    config = {"configurable": {"thread_id": "thread-exp"}}
+    with patch("agent_cli.chat.export_thread_to_markdown", return_value=None):
+        handled = _handle_command("/export", config)
+        assert handled is True
+        captured = capsys.readouterr()
+        assert "Could not export thread 'thread-exp'" in captured.out
+
+

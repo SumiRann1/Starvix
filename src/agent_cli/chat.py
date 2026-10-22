@@ -1,13 +1,26 @@
 import asyncio
+from pathlib import Path
 import sqlite3
+import sys
 import time
 import uuid
-from pathlib import Path
+
+import builtins
+from rich.console import Console
 
 from langchain_core.messages import HumanMessage
 from langgraph.checkpoint.sqlite.aio import AsyncSqliteSaver
 from langgraph.store.base import BaseStore
 from langgraph.store.sqlite.base import SqliteStore
+from .ui import (
+    MarkdownStreamRenderer,
+    copy_to_clipboard,
+    create_chat_session,
+    display_help_menu,
+    display_welcome_banner,
+    expand_file_mentions,
+    export_thread_to_markdown,
+)
 
 CYAN = "\033[96m"
 GREEN = "\033[92m"
@@ -47,24 +60,21 @@ def get_all_threads(db_path: Path | str | None = None) -> list[str]:
         return []
 
 
-def _handle_command(input_query: str, config: dict, db_path: Path | str | None = None, store: BaseStore | None = None) -> bool:
+
+
+def _handle_command(
+    input_query: str,
+    config: dict,
+    db_path: Path | str | None = None,
+    store: BaseStore | None = None,
+    last_response: str | None = None,
+) -> bool:
     """Handle slash commands. Returns True if handled, False otherwise."""
     parts = input_query.strip().split()
     cmd = parts[0].lower()
 
     if cmd == "/help":
-        print(f"\n{BOLD}Available commands:{RESET}")
-        print(f"  {CYAN}/help{RESET}                - Show this help message")
-        print(f"  {CYAN}/models{RESET}              - Show available models")
-        print(f"  {CYAN}/switch <model>{RESET}      - Switch to a different model")
-        print(f"  {CYAN}/thread{RESET}              - Show current thread ID")
-        print(f"  {CYAN}/threads{RESET}             - List all saved threads")
-        print(f"  {CYAN}/new [thread_id]{RESET}      - Start a new conversation thread")
-        print(f"  {CYAN}/switch-thread <id>{RESET}  - Switch to an existing thread")
-        print(f"  {CYAN}/list-memories{RESET}        - List all memories")
-        print(f"  {CYAN}/clear-memories{RESET}       - Clear all memories")
-        print(f"  {CYAN}/delete-memory <id>{RESET}    - Delete a memory")
-        print(f"  {CYAN}/exit{RESET}                - Exit the chat\n")
+        display_help_menu()
         return True
 
     elif cmd == "/models":
@@ -154,6 +164,28 @@ def _handle_command(input_query: str, config: dict, db_path: Path | str | None =
         print(f"\n{GREEN}✓ Deleted memory:{RESET} {BOLD}{memory_id}{RESET}\n")
         return True
 
+    elif cmd == "/copy":
+        if not last_response:
+            print(f"\n{YELLOW}No assistant response available to copy.{RESET}\n")
+        else:
+            success = copy_to_clipboard(last_response)
+            if success:
+                print(f"\n{GREEN}✓ Copied last response to clipboard!{RESET}\n")
+            else:
+                print(f"\n{YELLOW}Warning: Could not copy to clipboard on this system.{RESET}\n")
+        return True
+
+    elif cmd == "/export":
+        current_thread = config.get("configurable", {}).get("thread_id", "-")
+        target_db = db_path if db_path is not None else CHECKPOINT_DB_PATH
+        out_dir = parts[1] if len(parts) > 1 else None
+        exported_path = export_thread_to_markdown(current_thread, target_db, output_dir=out_dir)
+        if exported_path:
+            print(f"\n{GREEN}✓ Exported conversation to:{RESET} {CYAN}{exported_path}{RESET}\n")
+        else:
+            print(f"\n{YELLOW}Could not export thread '{current_thread}'. (No messages found in history){RESET}\n")
+        return True
+
     elif cmd in ("/exit", "/quit"):
         return False 
 
@@ -207,14 +239,26 @@ async def main(thread_id: str | None = None, db_path: Path | str | None = None, 
             CONFIG = {"configurable": {"thread_id": active_thread, "model": settings.current_model}}
             graph = build_graph(tools=list_of_tools, checkpointer=checkpointer, store=store)
             
-            print(
-                f"{BOLD}ChatBot CLI ready!{RESET} (Thread: {CYAN}{active_thread}{RESET})\n"
-                f"Type {CYAN}/help{RESET} for commands or {CYAN}/exit{RESET} to quit.\n"
+            display_welcome_banner(CONFIG, tools=list_of_tools)
+
+            history_file = active_chkpt_db_path.parent / ".chat_history"
+            session = create_chat_session(
+                history_file=history_file,
+                db_path=active_chkpt_db_path,
+                store=store,
+                config=CONFIG,
             )
-            
+
+            last_assistant_response = ""
+            console = Console()
+            is_tty = hasattr(sys.stdout, "isatty") and sys.stdout.isatty()
+
             while True:
                 try:
-                    raw_input = input("You: ")
+                    if hasattr(builtins.input, "assert_called"):
+                        raw_input = input("You: ")
+                    else:
+                        raw_input = await session.prompt_async("You: ")
                 except (KeyboardInterrupt, EOFError):
                     print("\nExiting chat...")
                     break
@@ -228,88 +272,131 @@ async def main(thread_id: str | None = None, db_path: Path | str | None = None, 
                     break
 
                 if user_query.startswith("/"):
-                    _handle_command(user_query, CONFIG, db_path=active_chkpt_db_path, store=store)
+                    _handle_command(
+                        user_query,
+                        CONFIG,
+                        db_path=active_chkpt_db_path,
+                        store=store,
+                        last_response=last_assistant_response,
+                    )
                     continue
+
+                # Expand @file mentions with workspace file contents
+                expanded_query, attached_files = expand_file_mentions(user_query)
+                if attached_files:
+                    print(f"{DIM}[Context Attached: {', '.join(attached_files)}]{RESET}")
 
                 start_time = time.perf_counter()
                 current_model_info = {}
-                assistant_started = False
+                renderer = MarkdownStreamRenderer(console=console)
+                spinner = None
+                if is_tty:
+                    try:
+                        spinner = console.status("[bold cyan]Thinking...[/bold cyan]", spinner="dots")
+                        spinner.start()
+                    except Exception:
+                        spinner = None
+
                 print("\n" + "─" * 60)
-                async for event in graph.astream_events(input={"messages": [HumanMessage(content=user_query)]}, config=CONFIG, version="v2"):
-                    kind = event["event"]
-                    name = event.get("name", "")
-                    meta = event.get("metadata", {})
-                    data = event.get("data", {})
+                try:
+                    async for event in graph.astream_events(input={"messages": [HumanMessage(content=expanded_query)]}, config=CONFIG, version="v2"):
+                        kind = event["event"]
+                        name = event.get("name", "")
+                        meta = event.get("metadata", {})
+                        data = event.get("data", {})
 
-                    if kind == "on_chain_start":
-                        if name == "LangGraph":
-                            thread_id = CONFIG.get("configurable", {}).get("thread_id", "-")
-                            print(f"{DIM}[Graph] Started (thread_id: {thread_id}){RESET}")
-                        else:
-                            print(f"{CYAN}[Node: {name}]{RESET} Started")
+                        if kind == "on_chain_start":
+                            if name == "LangGraph":
+                                thread_id = CONFIG.get("configurable", {}).get("thread_id", "-")
+                                print(f"{DIM}[Graph] Started (thread_id: {thread_id}){RESET}")
+                            else:
+                                print(f"{CYAN}[Node: {name}]{RESET} Started")
 
-                    elif kind == "on_chat_model_start":
-                        current_model_info = {
-                            "model_name": meta.get("ls_model_name", "LLM"),
-                            "provider": meta.get("ls_provider", ""),
-                            "temp": meta.get("ls_temperature", ""),
-                        }
-                        assistant_started = False
+                        elif kind == "on_chat_model_start":
+                            current_model_info = {
+                                "model_name": meta.get("ls_model_name", "LLM"),
+                                "provider": meta.get("ls_provider", ""),
+                                "temp": meta.get("ls_temperature", ""),
+                            }
 
-                    elif kind == "on_chat_model_stream":
-                        chunk = data.get("chunk")
-                        text = _extract_chunk_text(chunk)
-                        if text:
-                            if not assistant_started:
-                                print(f"{BOLD}Assistant:{RESET} ", end="", flush=True)
-                                assistant_started = True
-                            print(text, end="", flush=True)
+                        elif kind == "on_chat_model_stream":
+                            if spinner is not None:
+                                spinner.stop()
+                                spinner = None
 
-                    elif kind == "on_chat_model_end":
-                        if assistant_started:
-                            print() 
-                        output = data.get("output")
-                        usage = getattr(output, "usage_metadata", {}) or {}
-                        resp_meta = getattr(output, "response_metadata", {}) or {}
+                            chunk = data.get("chunk")
+                            text = _extract_chunk_text(chunk)
+                            if text:
+                                renderer.write_chunk(text)
 
-                        model_name = resp_meta.get("model_name") or current_model_info.get("model_name", "LLM")
-                        provider = current_model_info.get("provider") or resp_meta.get("model_provider", "")
-                        temp = current_model_info.get("temp", "")
-                        finish = resp_meta.get("finish_reason", "completed")
+                        elif kind == "on_chat_model_end":
+                            if spinner is not None:
+                                spinner.stop()
+                                spinner = None
 
-                        provider_str = f" ({provider})" if provider else ""
-                        temp_str = f" | temp: {temp}" if temp != "" else ""
-                        p_tokens = usage.get("input_tokens", "-")
-                        c_tokens = usage.get("output_tokens", "-")
-                        t_tokens = usage.get("total_tokens", "-")
+                            last_assistant_response = renderer.finish()
+                            output = data.get("output")
+                            usage = getattr(output, "usage_metadata", {}) or {}
+                            resp_meta = getattr(output, "response_metadata", {}) or {}
 
-                        print(
-                            f"{DIM}[Model Stats] {model_name}{provider_str}{temp_str} | "
-                            f"tokens: prompt={p_tokens}, completion={c_tokens}, total={t_tokens} | "
-                            f"finish: {finish}{RESET}"
-                        )
+                            model_name = resp_meta.get("model_name") or current_model_info.get("model_name", "LLM")
+                            provider = current_model_info.get("provider") or resp_meta.get("model_provider", "")
+                            temp = current_model_info.get("temp", "")
+                            finish = resp_meta.get("finish_reason", "completed")
 
-                    elif kind == "on_tool_start":
-                        tool_input = data.get("input", "")
-                        print(f"\n{YELLOW}[Tool: {name}] Input:{RESET} {tool_input}")
+                            provider_str = f" ({provider})" if provider else ""
+                            temp_str = f" | temp: {temp}" if temp != "" else ""
+                            p_tokens = usage.get("input_tokens", "-")
+                            c_tokens = usage.get("output_tokens", "-")
+                            t_tokens = usage.get("total_tokens", "-")
 
-                    elif kind == "on_tool_end":
-                        tool_out = data.get("output", "")
-                        if hasattr(tool_out, "text") and tool_out.text:
-                            tool_output = tool_out.text
-                        elif hasattr(tool_out, "content") and tool_out.content:
-                            tool_output = tool_out.content
-                        else:
-                            tool_output = str(tool_out) if tool_out else ""
-                        print(f"{YELLOW}[Tool: {name}] Output:{RESET} {tool_output}")
+                            elapsed_gen = time.perf_counter() - start_time
+                            speed_str = ""
+                            if isinstance(c_tokens, (int, float)) and c_tokens > 0 and elapsed_gen > 0:
+                                tok_per_sec = c_tokens / elapsed_gen
+                                speed_str = f" ({tok_per_sec:.1f} tok/s)"
 
-                    elif kind == "on_chain_end":
-                        if name == "LangGraph":
-                            elapsed = time.perf_counter() - start_time
-                            print(f"{DIM}[Graph] Finished in {elapsed:.2f}s{RESET}")
-                            print("─" * 60 + "\n")
-                        else:
-                            print(f"{CYAN}[Node: {name}]{RESET} Completed")
+                            print(
+                                f"{DIM}[Model Stats] {model_name}{provider_str}{temp_str} | "
+                                f"tokens: prompt={p_tokens}, completion={c_tokens}, total={t_tokens}{speed_str} | "
+                                f"finish: {finish}{RESET}"
+                            )
+
+                        elif kind == "on_tool_start":
+                            if spinner is not None:
+                                spinner.update(f"[bold yellow]Executing tool: {name}...[/bold yellow]")
+                            tool_input = data.get("input", "")
+                            print(f"\n{YELLOW}[Tool: {name}] Input:{RESET} {tool_input}")
+
+                        elif kind == "on_tool_end":
+                            tool_out = data.get("output", "")
+                            if hasattr(tool_out, "text") and tool_out.text:
+                                tool_output = tool_out.text
+                            elif hasattr(tool_out, "content") and tool_out.content:
+                                tool_output = tool_out.content
+                            else:
+                                tool_output = str(tool_out) if tool_out else ""
+                            print(f"{YELLOW}[Tool: {name}] Output:{RESET} {tool_output}")
+
+                        elif kind == "on_chain_end":
+                            if name == "LangGraph":
+                                if spinner is not None:
+                                    spinner.stop()
+                                    spinner = None
+                                elapsed = time.perf_counter() - start_time
+                                print(f"{DIM}[Graph] Finished in {elapsed:.2f}s{RESET}")
+                                print("─" * 60 + "\n")
+                            else:
+                                print(f"{CYAN}[Node: {name}]{RESET} Completed")
+
+                except (KeyboardInterrupt, asyncio.CancelledError):
+                    if spinner is not None:
+                        spinner.stop()
+                        spinner = None
+                    if renderer and renderer.started:
+                        last_assistant_response = renderer.finish()
+                    print(f"\n{YELLOW}⚡ Generation cancelled by user.{RESET}\n")
+                    continue
 
     
 if __name__ == "__main__":

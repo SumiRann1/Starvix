@@ -18,6 +18,8 @@ dependencies = [
     "python-dotenv",
     "langchain-mcp-adapters",
     "langgraph-checkpoint-sqlite",
+    "prompt_toolkit>=3.0.0",
+    "pyperclip>=1.8.0",
 ]
 
 [project.optional-dependencies]

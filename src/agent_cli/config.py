@@ -6,12 +6,24 @@ from pydantic import BaseModel, Field
 
 ROOT = Path(__file__).resolve().parent.parent.parent
 
+class StatusbarConfig(BaseModel):
+    theme: str = "tokyo_night"
+    bg: str | None = None
+    fg: str | None = None
+    model_color: str | None = None
+    thread_color: str | None = None
+    memory_color: str | None = None
+    help_color: str | None = None
+
+
 class Settings(BaseModel):
     current_model: str
     temperature: float = Field(ge=0, le=2)
     workspace_dir: Path
     data_dir: Path
     models: dict[str, str]
+    statusbar: StatusbarConfig = Field(default_factory=StatusbarConfig)
+
     
 def load_settings() -> Settings:
     load_dotenv(ROOT/".env")
