@@ -110,7 +110,7 @@ def get_statusline(config: dict, store: BaseStore | None = None) -> HTML:
     mem_count = 0
     if store is not None:
         try:
-            items = store.search(("memories", "default"))
+            items = store.search(("memories", "default"), limit=1000)
             mem_count = len(items)
         except Exception:
             mem_count = 0

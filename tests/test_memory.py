@@ -84,17 +84,15 @@ def test_graph_tool_execution_with_store():
 def test_delete_and_clear_memories():
     """Verify deleting a specific memory and clearing all memories."""
     store = InMemoryStore()
-    store.put(NAMESPACE, key="mem-1", value={"fact": "Fact 1"})
-    store.put(NAMESPACE, key="mem-2", value={"fact": "Fact 2"})
-
-    assert len(get_all_memories(store)) == 2
-
+    for i in range(100):
+        store.put(NAMESPACE, key=f"mem-{i}", value={"fact": f"Fact {i}"})
+    assert len(get_all_memories(store)) == 100
     # Delete single memory
-    deleted = delete_memory("mem-1", store)
+    deleted = delete_memory("mem-50", store)
     assert deleted is True
     remaining = get_all_memories(store)
-    assert len(remaining) == 1
-    assert "Fact 2" in remaining[0]
+    assert len(remaining) == 99
+    assert "Fact 50" not in remaining[0]
 
     # Clear all memories
     cleared = clear_memories(store)
@@ -125,3 +123,21 @@ def test_build_graph_with_custom_store():
     store = InMemoryStore()
     graph = build_graph(tools=memory_tools, store=store)
     assert graph.store is store
+
+
+def test_search_memory_bounded_limit():
+    """Verify search_memory bounds results to 5 by default and caps at 10."""
+    store = InMemoryStore()
+    for i in range(20):
+        store.put(NAMESPACE, key=f"pref-{i}", value={"fact": f"User preference number {i}"})
+
+    # Default invocation returns 5 results
+    res_default = search_memory.invoke({"query": "preference", "store": store})
+    lines_default = [line for line in res_default.split("\n") if line.strip()]
+    assert len(lines_default) == 5
+
+    # Limit of 100 is capped to 10 to protect context window
+    res_capped = search_memory.invoke({"query": "preference", "store": store, "limit": 100})
+    lines_capped = [line for line in res_capped.split("\n") if line.strip()]
+    assert len(lines_capped) == 10
+

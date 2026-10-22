@@ -76,7 +76,7 @@ class ChatBotCompleter(Completer):
 
             elif cmd == "/delete-memory" and self.store is not None:
                 try:
-                    for item in self.store.search(("memories", "default")):
+                    for item in self.store.search(("memories", "default"), limit=1000):
                         if item.key.lower().startswith(arg.lower()):
                             preview = item.value.get("fact", "")
                             meta = (preview[:30] + "...") if len(preview) > 30 else preview
