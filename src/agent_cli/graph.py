@@ -1,13 +1,14 @@
 from langgraph.checkpoint.memory import MemorySaver
 from langgraph.graph import START, StateGraph
 from langgraph.prebuilt import ToolNode, tools_condition
+from langgraph.store.memory import InMemoryStore
 
 from .node import make_chat_node
 from .state import AgentState
 from .tool import get_tools_sync
 
 
-def build_graph(state=AgentState, tools=None, checkpointer=None):
+def build_graph(state=AgentState, tools=None, checkpointer=None, store=None):
     #Agar tools diye nahi gayenge toh default tools use honge iski wajah se error aa rahi thi
     if tools is None:
         tools = get_tools_sync()
@@ -26,5 +27,7 @@ def build_graph(state=AgentState, tools=None, checkpointer=None):
 
     if checkpointer is None:
         checkpointer=MemorySaver()
+    if store is None:
+        store = InMemoryStore()
 
-    return graph_builder.compile(checkpointer=checkpointer)
+    return graph_builder.compile(checkpointer=checkpointer, store =store)

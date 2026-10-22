@@ -40,3 +40,5 @@ data/*.db
 
 
 *.zip
+
+ltm_architecture_guide.md

@@ -317,3 +317,76 @@ async def test_main_executes_streaming_events(capsys):
     assert "[Model Stats]" in captured.out
     assert "tavily_search" in captured.out
     assert "weather query" in captured.out
+
+
+def test_handle_command_list_memories(capsys):
+    config = {"configurable": {"thread_id": "test"}}
+    mock_store = Mock()
+    with patch("agent_cli.chat.get_all_memories", return_value=["[id1] Likes apples"]):
+        handled = _handle_command("/list-memories", config, store=mock_store)
+        assert handled is True
+        captured = capsys.readouterr()
+        assert "Memories:" in captured.out
+        assert "[id1] Likes apples" in captured.out
+
+
+def test_handle_command_clear_memories(capsys):
+    config = {"configurable": {"thread_id": "test"}}
+    mock_store = Mock()
+    with patch("agent_cli.chat.clear_memories") as mock_clear:
+        handled = _handle_command("/clear-memories", config, store=mock_store)
+        assert handled is True
+        mock_clear.assert_called_once_with(mock_store)
+        captured = capsys.readouterr()
+        assert "Cleared all memories" in captured.out
+
+
+def test_handle_command_delete_memory(capsys):
+    config = {"configurable": {"thread_id": "test"}}
+    mock_store = Mock()
+    with patch("agent_cli.chat.delete_memory") as mock_del:
+        handled = _handle_command("/delete-memory mem-123", config, store=mock_store)
+        assert handled is True
+        mock_del.assert_called_once_with("mem-123", mock_store)
+        captured = capsys.readouterr()
+        assert "Deleted memory" in captured.out
+        assert "mem-123" in captured.out
+
+
+def test_handle_command_list_memories_empty(capsys):
+    config = {"configurable": {"thread_id": "test"}}
+    mock_store = Mock()
+    with patch("agent_cli.chat.get_all_memories", return_value=[]):
+        handled = _handle_command("/list-memories", config, store=mock_store)
+        assert handled is True
+        captured = capsys.readouterr()
+        assert "(No memories found)" in captured.out
+
+
+def test_handle_command_delete_memory_missing_id(capsys):
+    config = {"configurable": {"thread_id": "test"}}
+    mock_store = Mock()
+    handled = _handle_command("/delete-memory", config, store=mock_store)
+    assert handled is True
+    captured = capsys.readouterr()
+    assert "Usage: /delete-memory <memory_id>" in captured.out
+
+
+def test_get_all_threads_handles_sqlite_error(tmp_path):
+    bad_file = tmp_path / "corrupt.sqlite"
+    bad_file.write_bytes(b"NOT A SQLITE FILE")
+    threads = get_all_threads(bad_file)
+    assert threads == []
+
+
+@pytest.mark.anyio
+async def test_main_handles_mcp_tools_failure(capsys):
+    with (
+        patch("builtins.input", side_effect=["exit"]),
+        patch("agent_cli.chat.get_tools_sync", side_effect=RuntimeError("MCP server connection refused")),
+        patch("agent_cli.chat.build_graph"),
+    ):
+        await main()
+    captured = capsys.readouterr()
+    assert "Warning: MCP tools unavailable: MCP server connection refused" in captured.out
+
