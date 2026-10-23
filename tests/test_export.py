@@ -1,4 +1,3 @@
-from pathlib import Path
 import subprocess
 from unittest.mock import Mock, patch
 
@@ -94,18 +93,20 @@ async def test_export_thread_to_markdown_valid(tmp_path):
         await saver.aput(config, checkpoint, {}, {})
 
     out_dir = tmp_path / "exports"
-    exported_file = export_thread_to_markdown(thread_id, db_path, output_dir=out_dir)
+    out_dir.mkdir(parents=True, exist_ok=True)
+    with patch("agent_cli.ui.export.settings.export_dir", out_dir):
+        exported_file = export_thread_to_markdown(thread_id, db_path)
 
-    assert exported_file is not None
-    assert exported_file.exists()
-    assert exported_file.name == f"conversation_{thread_id}.md"
+        assert exported_file is not None
+        assert exported_file.exists()
+        assert exported_file.name == f"conversation_{thread_id}.md"
 
-    content = exported_file.read_text(encoding="utf-8")
-    assert f"# Conversation Export: `{thread_id}`" in content
-    assert "### 👤 User\nHello world" in content
-    assert "### 🤖 Assistant\nHi there!" in content
-    assert "### 🛠️ Tool: `search_tool`" in content
-    assert "Result from tool" in content
+        content = exported_file.read_text(encoding="utf-8")
+        assert f"# Conversation Export: `{thread_id}`" in content
+        assert "### 👤 User\nHello world" in content
+        assert "### 🤖 Assistant\nHi there!" in content
+        assert "### 🛠️ Tool: `search_tool`" in content
+        assert "Result from tool" in content
 
 
 @pytest.mark.anyio
@@ -126,7 +127,7 @@ async def test_export_thread_to_markdown_empty_messages(tmp_path):
         }
         await saver.aput(config, checkpoint, {}, {})
 
-    res = export_thread_to_markdown(thread_id, db_path, output_dir=tmp_path)
+    res = export_thread_to_markdown(thread_id, db_path)
     assert res is None
 
 

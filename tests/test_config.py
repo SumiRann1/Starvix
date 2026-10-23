@@ -13,6 +13,7 @@ def test_settings_validation_temperature_bounds():
         "temperature": 0.5,
         "workspace_dir": "workspaces",
         "data_dir": "data",
+        "export_dir": "exports",
         "models": {"test": "test:model"},
     }
     s = Settings(**valid_data)
@@ -36,6 +37,7 @@ current_model: "google:gemini-test"
 temperature: 0.8
 workspace_dir: "test_ws"
 data_dir: "test_data"
+export_dir: "test_export"
 models:
   gemini: "google:gemini-test"
 """

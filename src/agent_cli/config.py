@@ -21,6 +21,7 @@ class Settings(BaseModel):
     temperature: float = Field(ge=0, le=2)
     workspace_dir: Path
     data_dir: Path
+    export_dir: Path
     models: dict[str, str]
     statusbar: StatusbarConfig = Field(default_factory=StatusbarConfig)
 
@@ -33,10 +34,13 @@ def load_settings() -> Settings:
         config = yaml.safe_load(f)
 
     settings = Settings(**config)
-    settings.workspace_dir = ROOT/settings.workspace_dir
+    settings.workspace_dir = Path(__file__).home() / ".forge/" / Path(settings.workspace_dir)
     settings.workspace_dir.mkdir(parents=True, exist_ok=True)
-    settings.data_dir = ROOT/settings.data_dir
+    settings.data_dir = Path(__file__).home() / ".forge/" / Path(settings.data_dir)
     settings.data_dir.mkdir(parents=True, exist_ok=True)
+    settings.export_dir = Path(__file__).home() / ".forge/" / Path(settings.export_dir)
+    settings.export_dir.mkdir(parents=True, exist_ok=True)
+
     return settings
 
 def set_current_model(key: str):

@@ -140,20 +140,6 @@ def test_different_threads_do_not_share_history(tools):
     )
 
 
-def test_build_graph_uses_provided_tools(tools):
-    with patch("agent_cli.graph.get_tools_sync") as mock_get_tools:
-        graph = build_graph(tools=tools)
-        mock_get_tools.assert_not_called()
-        assert graph is not None
-
-
-def test_build_graph_falls_back_to_get_tools_sync_when_none(tools):
-    with patch("agent_cli.graph.get_tools_sync", return_value=tools) as mock_get_tools:
-        graph = build_graph()
-        mock_get_tools.assert_called_once()
-        assert graph is not None
-
-
 def test_graph_executes_tool_call_and_returns_response(tools):
     fake_model = Mock()
     fake_model.bind_tools.return_value = fake_model
@@ -193,3 +179,37 @@ def test_graph_executes_tool_call_and_returns_response(tools):
         getattr(m, "type", None) == "tool" and m.content == "tool argument"
         for m in result["messages"]
     )
+
+
+def test_build_graph_default_tools():
+    fake_model = Mock()
+    fake_model.bind_tools.return_value = fake_model
+    tool_call_msg = AIMessage(
+        content="",
+        tool_calls=[
+            {
+                "name": "list_files",
+                "args": {"directory": "."},
+                "id": "call_default_1",
+                "type": "tool_call",
+            }
+        ],
+    )
+    final_response = AIMessage(content="Listing finished")
+    fake_model.invoke.side_effect = [tool_call_msg, final_response]
+
+    # No tools passed -> defaults to dev_tools + memory_tools
+    graph = build_graph()
+    assert graph is not None
+
+    with patch("agent_cli.node.get_model", return_value=fake_model):
+        result = graph.invoke(
+            {"messages": [HumanMessage(content="Show my files")]},
+            config={"configurable": {"thread_id": "test-default-tools-thread"}},
+        )
+
+    # Verify default tool was routed and executed by the graph
+    tool_messages = [m for m in result["messages"] if getattr(m, "type", None) == "tool"]
+    assert len(tool_messages) == 1
+    assert tool_messages[0].name == "list_files"
+    assert result["messages"][-1].content == "Listing finished"

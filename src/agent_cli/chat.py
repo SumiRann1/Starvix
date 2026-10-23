@@ -1,17 +1,18 @@
 import asyncio
-from pathlib import Path
+import builtins
 import sqlite3
 import sys
 import time
 import uuid
-
-import builtins
-from rich.console import Console
+from pathlib import Path
 
 from langchain_core.messages import HumanMessage
 from langgraph.checkpoint.sqlite.aio import AsyncSqliteSaver
 from langgraph.store.base import BaseStore
 from langgraph.store.sqlite.base import SqliteStore
+from langgraph.types import Command
+from rich.console import Console
+
 from .ui import (
     MarkdownStreamRenderer,
     copy_to_clipboard,
@@ -32,11 +33,12 @@ RESET = "\033[0m"
 
 from .config import set_current_model, settings
 from .graph import build_graph
-from .memory import clear_memories, delete_memory, get_all_memories, memory_tools
-from .tool import get_tools_sync
+from .tool.dev_tools import dev_tools
+from .tool.memory import clear_memories, delete_memory, get_all_memories, memory_tools
+from .tool.tavily_tool import get_tools_sync
 
-CHECKPOINT_DB_PATH = Path(__file__).parent.parent.parent / "data" / "checkpoints.sqlite"
-STORE_DB_PATH = Path(__file__).parent.parent.parent / "data" / "store.sqlite"
+CHECKPOINT_DB_PATH = Path(str(settings.data_dir)) / "checkpoints.sqlite"
+STORE_DB_PATH = Path(str(settings.data_dir)) / "store.sqlite"
 
 def get_all_threads(db_path: Path | str | None = None) -> list[str]:
     """Retrieve all unique thread IDs stored in the SQLite checkpoints database."""
@@ -178,8 +180,7 @@ def _handle_command(
     elif cmd == "/export":
         current_thread = config.get("configurable", {}).get("thread_id", "-")
         target_db = db_path if db_path is not None else CHECKPOINT_DB_PATH
-        out_dir = parts[1] if len(parts) > 1 else None
-        exported_path = export_thread_to_markdown(current_thread, target_db, output_dir=out_dir)
+        exported_path = export_thread_to_markdown(current_thread, target_db)
         if exported_path:
             print(f"\n{GREEN}✓ Exported conversation to:{RESET} {CYAN}{exported_path}{RESET}\n")
         else:
@@ -223,7 +224,7 @@ async def main(thread_id: str | None = None, db_path: Path | str | None = None, 
     except Exception as exc: # noqa: BLE001
         print(f"Warning: MCP tools unavailable: {exc}")
         mcp_tools = []
-    list_of_tools = [*memory_tools, *mcp_tools]
+    list_of_tools = [*dev_tools, *memory_tools, *mcp_tools]
 
     active_chkpt_db_path = Path(db_path) if db_path is not None else CHECKPOINT_DB_PATH
     active_store_db_path = Path(store_path) if store_path is not None else STORE_DB_PATH
@@ -294,100 +295,140 @@ async def main(thread_id: str | None = None, db_path: Path | str | None = None, 
                     try:
                         spinner = console.status("[bold cyan]Thinking...[/bold cyan]", spinner="dots")
                         spinner.start()
-                    except Exception:
+                    except Exception: # noqa: BLE001
                         spinner = None
 
                 print("\n" + "─" * 60)
                 try:
-                    async for event in graph.astream_events(input={"messages": [HumanMessage(content=expanded_query)]}, config=CONFIG, version="v2"):
-                        kind = event["event"]
-                        name = event.get("name", "")
-                        meta = event.get("metadata", {})
-                        data = event.get("data", {})
+                    async def run_stream(stream_input, renderer=renderer, start_time=start_time):
+                        nonlocal spinner, last_assistant_response, current_model_info
+                        async for event in graph.astream_events(input=stream_input, config=CONFIG, version="v2"):
+                            kind = event["event"]
+                            name = event.get("name", "")
+                            meta = event.get("metadata", {})
+                            data = event.get("data", {})
 
-                        if kind == "on_chain_start":
-                            if name == "LangGraph":
-                                thread_id = CONFIG.get("configurable", {}).get("thread_id", "-")
-                                print(f"{DIM}[Graph] Started (thread_id: {thread_id}){RESET}")
-                            else:
-                                print(f"{CYAN}[Node: {name}]{RESET} Started")
+                            if kind == "on_chain_start":
+                                if name == "LangGraph":
+                                    thread_id = CONFIG.get("configurable", {}).get("thread_id", "-")
+                                    print(f"{DIM}[Graph] Started (thread_id: {thread_id}){RESET}")
+                                else:
+                                    print(f"{CYAN}[Node: {name}]{RESET} Started")
 
-                        elif kind == "on_chat_model_start":
-                            current_model_info = {
-                                "model_name": meta.get("ls_model_name", "LLM"),
-                                "provider": meta.get("ls_provider", ""),
-                                "temp": meta.get("ls_temperature", ""),
-                            }
+                            elif kind == "on_chat_model_start":
+                                current_model_info = {
+                                    "model_name": meta.get("ls_model_name", "LLM"),
+                                    "provider": meta.get("ls_provider", ""),
+                                    "temp": meta.get("ls_temperature", ""),
+                                }
 
-                        elif kind == "on_chat_model_stream":
-                            if spinner is not None:
-                                spinner.stop()
-                                spinner = None
-
-                            chunk = data.get("chunk")
-                            text = _extract_chunk_text(chunk)
-                            if text:
-                                renderer.write_chunk(text)
-
-                        elif kind == "on_chat_model_end":
-                            if spinner is not None:
-                                spinner.stop()
-                                spinner = None
-
-                            last_assistant_response = renderer.finish()
-                            output = data.get("output")
-                            usage = getattr(output, "usage_metadata", {}) or {}
-                            resp_meta = getattr(output, "response_metadata", {}) or {}
-
-                            model_name = resp_meta.get("model_name") or current_model_info.get("model_name", "LLM")
-                            provider = current_model_info.get("provider") or resp_meta.get("model_provider", "")
-                            temp = current_model_info.get("temp", "")
-                            finish = resp_meta.get("finish_reason", "completed")
-
-                            provider_str = f" ({provider})" if provider else ""
-                            temp_str = f" | temp: {temp}" if temp != "" else ""
-                            p_tokens = usage.get("input_tokens", "-")
-                            c_tokens = usage.get("output_tokens", "-")
-                            t_tokens = usage.get("total_tokens", "-")
-
-                            elapsed_gen = time.perf_counter() - start_time
-                            speed_str = ""
-                            if isinstance(c_tokens, (int, float)) and c_tokens > 0 and elapsed_gen > 0:
-                                tok_per_sec = c_tokens / elapsed_gen
-                                speed_str = f" ({tok_per_sec:.1f} tok/s)"
-
-                            print(
-                                f"{DIM}[Model Stats] {model_name}{provider_str}{temp_str} | "
-                                f"tokens: prompt={p_tokens}, completion={c_tokens}, total={t_tokens}{speed_str} | "
-                                f"finish: {finish}{RESET}"
-                            )
-
-                        elif kind == "on_tool_start":
-                            if spinner is not None:
-                                spinner.update(f"[bold yellow]Executing tool: {name}...[/bold yellow]")
-                            tool_input = data.get("input", "")
-                            print(f"\n{YELLOW}[Tool: {name}] Input:{RESET} {tool_input}")
-
-                        elif kind == "on_tool_end":
-                            tool_out = data.get("output", "")
-                            if hasattr(tool_out, "text") and tool_out.text:
-                                tool_output = tool_out.text
-                            elif hasattr(tool_out, "content") and tool_out.content:
-                                tool_output = tool_out.content
-                            else:
-                                tool_output = str(tool_out) if tool_out else ""
-                            print(f"{YELLOW}[Tool: {name}] Output:{RESET} {tool_output}")
-
-                        elif kind == "on_chain_end":
-                            if name == "LangGraph":
+                            elif kind == "on_chat_model_stream":
                                 if spinner is not None:
                                     spinner.stop()
                                     spinner = None
-                                elapsed = time.perf_counter() - start_time
-                                print(f"{DIM}[Graph] Finished in {elapsed:.2f}s{RESET}")
-                                print("─" * 60 + "\n")
+
+                                chunk = data.get("chunk")
+                                text = _extract_chunk_text(chunk)
+                                if text:
+                                    renderer.write_chunk(text)
+
+                            elif kind == "on_chat_model_end":
+                                if spinner is not None:
+                                    spinner.stop()
+                                    spinner = None
+
+                                last_assistant_response = renderer.finish()
+                                output = data.get("output")
+                                usage = getattr(output, "usage_metadata", {}) or {}
+                                resp_meta = getattr(output, "response_metadata", {}) or {}
+
+                                model_name = resp_meta.get("model_name") or current_model_info.get("model_name", "LLM")
+                                provider = current_model_info.get("provider") or resp_meta.get("model_provider", "")
+                                temp = current_model_info.get("temp", "")
+                                finish = resp_meta.get("finish_reason", "completed")
+
+                                provider_str = f" ({provider})" if provider else ""
+                                temp_str = f" | temp: {temp}" if temp != "" else ""
+                                p_tokens = usage.get("input_tokens", "-")
+                                c_tokens = usage.get("output_tokens", "-")
+                                t_tokens = usage.get("total_tokens", "-")
+
+                                elapsed_gen = time.perf_counter() - start_time
+                                speed_str = ""
+                                if isinstance(c_tokens, (int, float)) and c_tokens > 0 and elapsed_gen > 0:
+                                    tok_per_sec = c_tokens / elapsed_gen
+                                    speed_str = f" ({tok_per_sec:.1f} tok/s)"
+
+                                print(
+                                    f"{DIM}[Model Stats] {model_name}{provider_str}{temp_str} | "
+                                    f"tokens: prompt={p_tokens}, completion={c_tokens}, total={t_tokens}{speed_str} | "
+                                    f"finish: {finish}{RESET}"
+                                )
+
+                            elif kind == "on_tool_start":
+                                if spinner is not None:
+                                    spinner.update(f"[bold yellow]Executing tool: {name}...[/bold yellow]")
+                                tool_input = data.get("input", "")
+                                print(f"\n{YELLOW}[Tool: {name}] Input:{RESET} {tool_input}")
+
+                            elif kind == "on_tool_end":
+                                tool_out = data.get("output", "")
+                                if hasattr(tool_out, "text") and tool_out.text:
+                                    tool_output = tool_out.text
+                                elif hasattr(tool_out, "content") and tool_out.content:
+                                    tool_output = tool_out.content
+                                else:
+                                    tool_output = str(tool_out) if tool_out else ""
+                                print(f"{YELLOW}[Tool: {name}] Output:{RESET} {tool_output}")
+
+                            elif kind == "on_chain_end":
+                                if name == "LangGraph":
+                                    if spinner is not None:
+                                        spinner.stop()
+                                        spinner = None
+                                    elapsed = time.perf_counter() - start_time
+                                    print(f"{DIM}[Graph] Finished in {elapsed:.2f}s{RESET}")
+                                    print("─" * 60 + "\n")
+                                else:
+                                    print(f"{CYAN}[Node: {name}]{RESET} Completed")
+
+                    await run_stream({"messages": [HumanMessage(content=expanded_query)]})
+
+                    while True:
+                        pending_interrupts = []
+                        if hasattr(graph, "aget_state"):
+                            try:
+                                res = graph.aget_state(CONFIG)
+                                state = await res if asyncio.iscoroutine(res) else None
+                                if state and hasattr(state, "tasks"):
+                                    pending_interrupts = [
+                                        hitl
+                                        for task in getattr(state, "tasks", ())
+                                        for hitl in getattr(task, "interrupts", ())
+                                    ]
+                            except Exception: # noqa: BLE001
+                                pending_interrupts = []
+
+                        if not pending_interrupts:
+                            break
+
+                        for hitl in pending_interrupts:
+                            if spinner is not None:
+                                spinner.stop()  
+                                spinner = None
+
+                            payload = hitl.value
+                            msg = payload.get("message") if isinstance(payload, dict) else str(payload)
+                            print(f"\n{YELLOW}⚠️  [HITL Approval Required]{RESET} {msg}")
+
+                            if hasattr(builtins.input, "assert_called"):
+                                choice = input(f"{BOLD}Approve action? [y/N]: {RESET}").strip().lower()
                             else:
-                                print(f"{CYAN}[Node: {name}]{RESET} Completed")
+                                choice = (await asyncio.to_thread(input, f"{BOLD}Approve action? [y/N]: {RESET}")).strip().lower()
+
+                            is_approved = choice in ("y", "yes")
+
+                            await run_stream(Command(resume=is_approved))
 
                 except (KeyboardInterrupt, asyncio.CancelledError):
                     if spinner is not None:

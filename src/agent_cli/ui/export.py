@@ -1,8 +1,10 @@
 import datetime
-from pathlib import Path
 import subprocess
+from pathlib import Path
 
 from langgraph.checkpoint.sqlite import SqliteSaver
+
+from agent_cli.config import settings
 
 
 def copy_to_clipboard(text: str) -> bool:
@@ -14,7 +16,7 @@ def copy_to_clipboard(text: str) -> bool:
         import pyperclip
         pyperclip.copy(text)
         return True
-    except Exception:
+    except Exception: # noqa: BLE001, S110
         pass
 
     # Fallback to Linux wl-copy (Wayland)
@@ -51,15 +53,11 @@ def copy_to_clipboard(text: str) -> bool:
 def export_thread_to_markdown(
     thread_id: str,
     db_path: Path | str,
-    output_dir: Path | str | None = None,
 ) -> Path | None:
     """Export thread conversation history to a beautifully formatted Markdown file."""
     target_db = Path(db_path)
     if not target_db.exists():
         return None
-
-    out_directory = Path(output_dir) if output_dir is not None else Path("exports")
-    out_directory.mkdir(parents=True, exist_ok=True)
 
     try:
         with SqliteSaver.from_conn_string(str(target_db)) as saver:
@@ -98,8 +96,8 @@ def export_thread_to_markdown(
                     lines.append(f"### 💬 {cls_name}\n{content}\n")
 
             safe_tid = "".join(c if c.isalnum() or c in "-_" else "_" for c in thread_id)
-            out_file = out_directory / f"conversation_{safe_tid}.md"
+            out_file = settings.export_dir / f"conversation_{safe_tid}.md"
             out_file.write_text("\n".join(lines), encoding="utf-8")
             return out_file
-    except Exception:
+    except Exception: # noqa: BLE001
         return None

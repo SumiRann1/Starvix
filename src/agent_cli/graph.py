@@ -5,13 +5,14 @@ from langgraph.store.memory import InMemoryStore
 
 from .node import make_chat_node
 from .state import AgentState
-from .tool import get_tools_sync
+from .tool.dev_tools import dev_tools
+from .tool.memory import memory_tools
 
 
 def build_graph(state=AgentState, tools=None, checkpointer=None, store=None):
     #Agar tools diye nahi gayenge toh default tools use honge iski wajah se error aa rahi thi
     if tools is None:
-        tools = get_tools_sync()
+        tools = dev_tools+memory_tools
     
     graph_builder = StateGraph(state)
 

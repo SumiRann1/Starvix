@@ -5,10 +5,11 @@ __version__ = "0.1.0"
 from .chat import get_all_threads
 from .config import set_current_model, settings
 from .graph import build_graph
-from .memory import clear_memories, delete_memory, get_all_memories, memory_tools
 from .models import get_model, list_models
 from .node import chat_node, make_chat_node
 from .state import SYSTEM_PROMPT, AgentState
+from .tool.dev_tools import dev_tools
+from .tool.memory import clear_memories, delete_memory, get_all_memories, memory_tools
 
 __all__ = [
     "SYSTEM_PROMPT",
@@ -19,6 +20,7 @@ __all__ = [
     "clear_memories",
     "client",
     "delete_memory",
+    "dev_tools",
     "get_all_memories",
     "get_all_threads",
     "get_model",

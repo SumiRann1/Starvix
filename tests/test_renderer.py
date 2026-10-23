@@ -1,5 +1,4 @@
 from io import StringIO
-from unittest.mock import Mock
 
 from rich.console import Console
 

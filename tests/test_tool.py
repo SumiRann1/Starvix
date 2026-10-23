@@ -6,7 +6,7 @@ from langchain_core.messages import AIMessage, HumanMessage, ToolMessage
 from langchain_core.tools import tool
 
 from agent_cli.graph import build_graph
-from agent_cli.tool import client, get_tools, get_tools_sync
+from agent_cli.tool.tavily_tool import client, get_tools, get_tools_sync
 
 
 def test_client_configuration():
@@ -22,7 +22,7 @@ async def test_get_tools_async():
         """A test tool."""
         return query
 
-    with patch("agent_cli.tool.client.get_tools", new=AsyncMock(return_value=[dummy_tool])):
+    with patch("agent_cli.tool.tavily_tool.client.get_tools", new=AsyncMock(return_value=[dummy_tool])):
         tools = await get_tools()
         assert len(tools) == 1
         assert tools[0].name == "dummy_tool"
@@ -34,7 +34,7 @@ def test_get_tools_sync_without_running_loop():
         """A test tool."""
         return query
 
-    with patch("agent_cli.tool.client.get_tools", new=AsyncMock(return_value=[dummy_tool])):
+    with patch("agent_cli.tool.tavily_tool.client.get_tools", new=AsyncMock(return_value=[dummy_tool])):
         tools = get_tools_sync()
         assert len(tools) == 1
         assert tools[0].name == "dummy_tool"
@@ -47,7 +47,7 @@ async def test_get_tools_sync_with_running_loop():
         """A test tool."""
         return query
 
-    with patch("agent_cli.tool.client.get_tools", new=AsyncMock(return_value=[dummy_tool])):
+    with patch("agent_cli.tool.tavily_tool.client.get_tools", new=AsyncMock(return_value=[dummy_tool])):
         # Inside an async test, an event loop is running, triggering the ThreadPoolExecutor branch
         tools = get_tools_sync()
         assert len(tools) == 1

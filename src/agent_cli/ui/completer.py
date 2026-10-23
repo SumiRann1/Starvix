@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import Any
+from typing import Any, ClassVar
 
 from langgraph.store.base import BaseStore
 from prompt_toolkit import PromptSession
@@ -9,6 +9,7 @@ from prompt_toolkit.history import FileHistory
 from prompt_toolkit.styles import Style
 
 from agent_cli.config import settings
+
 from .context import get_workspace_files
 from .statusline import get_statusline
 
@@ -16,7 +17,7 @@ from .statusline import get_statusline
 class ChatBotCompleter(Completer):
     """Interactive completer for slash commands, dynamic arguments, and @file mentions."""
 
-    COMMANDS = {
+    COMMANDS: ClassVar[dict[str, str]] = {
         "/help": "Show available commands",
         "/models": "Show available models",
         "/switch": "Switch to a different model",
@@ -81,7 +82,7 @@ class ChatBotCompleter(Completer):
                             preview = item.value.get("fact", "")
                             meta = (preview[:30] + "...") if len(preview) > 30 else preview
                             yield Completion(item.key, start_position=-len(arg), display_meta=meta)
-                except Exception:
+                except Exception: # noqa: BLE001, S110
                     pass
             return
 

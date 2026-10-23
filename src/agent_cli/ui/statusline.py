@@ -1,5 +1,5 @@
-from prompt_toolkit.formatted_text import HTML
 from langgraph.store.base import BaseStore
+from prompt_toolkit.formatted_text import HTML
 
 from agent_cli.config import settings
 
@@ -112,7 +112,7 @@ def get_statusline(config: dict, store: BaseStore | None = None) -> HTML:
         try:
             items = store.search(("memories", "default"), limit=1000)
             mem_count = len(items)
-        except Exception:
+        except Exception: # noqa: BLE001
             mem_count = 0
 
     c = resolve_statusbar_colors()

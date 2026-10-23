@@ -1,4 +1,3 @@
-import pytest
 from langchain_core.messages import AIMessage
 from langgraph.graph import START, StateGraph
 from langgraph.prebuilt import ToolNode
@@ -6,7 +5,8 @@ from langgraph.store.memory import InMemoryStore
 from langgraph.store.sqlite.base import SqliteStore
 
 from agent_cli.graph import build_graph
-from agent_cli.memory import (
+from agent_cli.state import AgentState
+from agent_cli.tool.memory import (
     NAMESPACE,
     clear_memories,
     delete_memory,
@@ -15,7 +15,6 @@ from agent_cli.memory import (
     save_memory,
     search_memory,
 )
-from agent_cli.state import AgentState
 
 
 def test_get_all_memories_none_store():

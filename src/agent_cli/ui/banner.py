@@ -1,8 +1,8 @@
 from pathlib import Path
+
 from rich.console import Console
 from rich.panel import Panel
 from rich.table import Table
-from rich.text import Text
 
 from agent_cli.config import settings
 
@@ -24,7 +24,7 @@ def display_welcome_banner(
 
     try:
         workspace_display = str(Path.cwd().name)
-    except Exception:
+    except Exception: # noqa: BLE001
         workspace_display = "workspace"
 
     grid = Table.grid(padding=(0, 2))
