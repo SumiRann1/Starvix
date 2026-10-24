@@ -20,11 +20,15 @@ def display_welcome_banner(
     thread_id = configurable.get("thread_id", "default")
     tools_list = tools or []
     tool_names = [getattr(t, "name", str(t)) for t in tools_list]
-    tools_str = f"{len(tool_names)} active ({', '.join(tool_names[:3])}{'...' if len(tool_names) > 3 else ''})" if tool_names else "None"
+    tools_str = (
+        f"{len(tool_names)} active ({', '.join(tool_names[:3])}{'...' if len(tool_names) > 3 else ''})"
+        if tool_names
+        else "None"
+    )
 
     try:
         workspace_display = str(Path.cwd().name)
-    except Exception: # noqa: BLE001
+    except Exception:  # noqa: BLE001
         workspace_display = "workspace"
 
     grid = Table.grid(padding=(0, 2))
@@ -80,7 +84,11 @@ def display_help_menu(console: Console | None = None) -> None:
         # Export & Context
         ("@<filename>", "Context", "Mention any file to inject its code into context"),
         ("/copy", "Clipboard", "Copy last assistant response to clipboard"),
-        ("/export [path]", "Export", "Export full conversation history to Markdown file"),
+        (
+            "/export [path]",
+            "Export",
+            "Export full conversation history to Markdown file",
+        ),
     ]
 
     for cmd, cat, desc in commands_data:

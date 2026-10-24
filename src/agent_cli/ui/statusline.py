@@ -78,7 +78,14 @@ def resolve_statusbar_colors(sb_config=None) -> dict[str, str]:
     colors = dict(THEMES.get(theme_name, THEMES["tokyo_night"]))
 
     if sb:
-        for key in ("bg", "fg", "model_color", "thread_color", "memory_color", "help_color"):
+        for key in (
+            "bg",
+            "fg",
+            "model_color",
+            "thread_color",
+            "memory_color",
+            "help_color",
+        ):
             val = getattr(sb, key, None)
             if val:
                 colors[key] = val
@@ -112,7 +119,7 @@ def get_statusline(config: dict, store: BaseStore | None = None) -> HTML:
         try:
             items = store.search(("memories", "default"), limit=1000)
             mem_count = len(items)
-        except Exception: # noqa: BLE001
+        except Exception:  # noqa: BLE001
             mem_count = 0
 
     c = resolve_statusbar_colors()
@@ -123,5 +130,5 @@ def get_statusline(config: dict, store: BaseStore | None = None) -> HTML:
         f'<b>[🧵 Thread:</b> <style fg="{c["thread_color"]}">{thread_display}</style><b>]</b> '
         f'<b>[🧠 Memories:</b> <style fg="{c["memory_color"]}">{mem_count}</style><b>]</b> '
         f'<b>[<style fg="{c["help_color"]}">⌨️  /help</style>]</b> '
-        f'</style>'
+        f"</style>"
     )

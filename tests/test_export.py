@@ -84,7 +84,11 @@ async def test_export_thread_to_markdown_valid(tmp_path):
                 "messages": [
                     HumanMessage(content="Hello world"),
                     AIMessage(content="Hi there!"),
-                    ToolMessage(content="Result from tool", tool_call_id="call_1", name="search_tool"),
+                    ToolMessage(
+                        content="Result from tool",
+                        tool_call_id="call_1",
+                        name="search_tool",
+                    ),
                 ]
             },
             "channel_versions": {},

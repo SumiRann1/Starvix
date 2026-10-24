@@ -81,9 +81,7 @@ async def test_async_sqlite_persistence_across_sessions(tmp_path):
 
         fake_model2 = Mock()
         fake_model2.bind_tools.return_value = fake_model2
-        fake_model2.invoke.return_value = AIMessage(
-            content="Your name is Alice."
-        )
+        fake_model2.invoke.return_value = AIMessage(content="Your name is Alice.")
 
         with patch("agent_cli.node.get_model", return_value=fake_model2):
             result2 = await graph2.ainvoke(
@@ -197,7 +195,10 @@ async def test_async_sqlite_persistence_with_tool_calls(tmp_path):
 
         # Checkpointer ke state mein check karo
         state_tuple = await graph.aget_state(config)
-        assert state_tuple.values["messages"][-1].content == "The tool output was processed: weather query"
+        assert (
+            state_tuple.values["messages"][-1].content
+            == "The tool output was processed: weather query"
+        )
 
 
 @pytest.mark.anyio
@@ -246,11 +247,23 @@ async def test_async_sqlite_get_all_threads(tmp_path):
         with patch("agent_cli.node.get_model", return_value=fake_model):
             await graph.ainvoke(
                 {"messages": [HumanMessage(content="Hello Thread 1")]},
-                config={"configurable": {"thread_id": "session-1", "model": "test-m", "tools": []}},
+                config={
+                    "configurable": {
+                        "thread_id": "session-1",
+                        "model": "test-m",
+                        "tools": [],
+                    }
+                },
             )
             await graph.ainvoke(
                 {"messages": [HumanMessage(content="Hello Thread 2")]},
-                config={"configurable": {"thread_id": "session-2", "model": "test-m", "tools": []}},
+                config={
+                    "configurable": {
+                        "thread_id": "session-2",
+                        "model": "test-m",
+                        "tools": [],
+                    }
+                },
             )
 
     threads = get_all_threads(db_path)

@@ -20,6 +20,7 @@ dependencies = [
     "langgraph-checkpoint-sqlite",
     "prompt_toolkit>=3.0.0",
     "pyperclip>=1.8.0",
+    "langsmith",
 ]
 
 [project.optional-dependencies]

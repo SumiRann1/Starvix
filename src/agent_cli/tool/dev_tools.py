@@ -2,10 +2,12 @@ import os
 import subprocess
 from pathlib import Path
 
+from guardrails.errors import ValidationError
 from langchain_core.tools import tool
 from langgraph.types import interrupt
 
 from agent_cli.config import settings
+from agent_cli.guardrails import validate_file_path, validate_terminal_command
 
 WORKSPACE = Path(settings.workspace_dir)
 
@@ -47,7 +49,16 @@ def grep_search(query: str, path: str = "."):
     for file in files_to_check:
         if file.is_file():
             # Skip hidden and cache folders
-            if any(part in file.parts for part in (".git", "__pycache__", ".venv", "node_modules", ".pytest_cache")):
+            if any(
+                part in file.parts
+                for part in (
+                    ".git",
+                    "__pycache__",
+                    ".venv",
+                    "node_modules",
+                    ".pytest_cache",
+                )
+            ):
                 continue
             try:
                 with open(file, "r", encoding="utf-8", errors="ignore") as f:
@@ -56,8 +67,11 @@ def grep_search(query: str, path: str = "."):
                             rel_path = file.relative_to(WORKSPACE)
                             matches.append(f"{rel_path}:{line_no}: {line.strip()}")
                             if len(matches) >= 50:
-                                return "\n".join(matches) + "\n... (more matches truncated)"
-            except Exception: # noqa: BLE001, S112
+                                return (
+                                    "\n".join(matches)
+                                    + "\n... (more matches truncated)"
+                                )
+            except Exception:  # noqa: BLE001, S112
                 continue
 
     return "\n".join(matches) if matches else f"No matches found for '{query}'"
@@ -84,6 +98,10 @@ def find_files(query: str, directory: str = "."):
 @tool
 def read_file(file_path: str):
     """Read full content of a file in the workspace."""
+    try:
+        validate_file_path(file_path)
+    except ValidationError as e:
+        return f"Access Denied by Guardrails: {e}"
     abs_path = _resolve_safe_path(file_path)
     if abs_path is None:
         return f"Access denied: File '{file_path}' is outside the workspace."
@@ -96,6 +114,10 @@ def read_file(file_path: str):
 @tool
 def read_relevant_lines(file_path: str, start_line: int, end_line: int):
     """Read a specific range of lines from a file in the workspace (1-indexed)."""
+    try:
+        validate_file_path(file_path)
+    except ValidationError as e:
+        return f"Access Denied by Guardrails: {e}"
     abs_path = _resolve_safe_path(file_path)
     if abs_path is None:
         return f"Access denied: File '{file_path}' is outside the workspace."
@@ -107,14 +129,20 @@ def read_relevant_lines(file_path: str, start_line: int, end_line: int):
         start_idx = max(0, start_line - 1)
         end_idx = min(len(lines), end_line)
         selected = lines[start_idx:end_idx]
-        return "".join(f"{idx}: {line}" for idx, line in enumerate(selected, start=start_idx + 1))
-    except Exception as exc: # noqa: BLE001
+        return "".join(
+            f"{idx}: {line}" for idx, line in enumerate(selected, start=start_idx + 1)
+        )
+    except Exception as exc:  # noqa: BLE001
         return f"Error reading file: {exc}"
 
 
 @tool
 def get_file_outlines(file_path: str):
     """Extract outline of a file (classes, functions, and key definitions)."""
+    try:
+        validate_file_path(file_path)
+    except ValidationError as e:
+        return f"Access Denied by Guardrails: {e}"
     abs_path = _resolve_safe_path(file_path)
     if abs_path is None:
         return f"Access denied: File '{file_path}' is outside the workspace."
@@ -125,6 +153,7 @@ def get_file_outlines(file_path: str):
         content = abs_path.read_text(encoding="utf-8", errors="ignore")
         if file_path.endswith(".py"):
             import ast
+
             tree = ast.parse(content)
             outlines = []
             for node in ast.walk(tree):
@@ -137,25 +166,42 @@ def get_file_outlines(file_path: str):
             outlines = []
             for idx, line in enumerate(content.splitlines(), 1):
                 stripped = line.strip()
-                if stripped.startswith(("#", "def ", "class ", "function ", "export ", "const ", "interface ")):
+                if stripped.startswith(
+                    (
+                        "#",
+                        "def ",
+                        "class ",
+                        "function ",
+                        "export ",
+                        "const ",
+                        "interface ",
+                    )
+                ):
                     outlines.append(f"Line {idx}: {stripped}")
             return "\n".join(outlines[:50]) if outlines else "No outline markers found."
-    except Exception as exc: # noqa: BLE001
+    except Exception as exc:  # noqa: BLE001
         return f"Could not parse file: {exc}"
 
 
 @tool
 def write_file(file_path: str, content: str):
     """Write or overwrite a file in the workspace."""
+    try:
+        validate_file_path(file_path)
+    except ValidationError as e:
+        return f"Access Denied by Guardrails: {e}"
+
     abs_path = _resolve_safe_path(file_path)
     if abs_path is None:
         return f"Access denied: File '{file_path}' is outside the workspace."
 
-    approval = interrupt({
-        "action": "write_file",
-        "file_path": file_path,
-        "message": f"Write file '{file_path}'?",
-    })
+    approval = interrupt(
+        {
+            "action": "write_file",
+            "file_path": file_path,
+            "message": f"Write file '{file_path}'?",
+        }
+    )
     if approval not in (True, "y", "yes"):
         return f"Operation cancelled by user: '{file_path}' was NOT written."
 
@@ -168,19 +214,26 @@ def write_file(file_path: str, content: str):
 @tool
 def replace_code(file_path: str, old_code: str, new_code: str):
     """Replace specific code snippet in a file in the workspace."""
+    try:
+        validate_file_path(file_path)
+    except ValidationError as e:
+        return f"Access Denied by Guardrails: {e}"
+
     abs_path = _resolve_safe_path(file_path)
     if abs_path is None:
         return f"Access denied: File '{file_path}' is outside the workspace."
     if not abs_path.exists():
         return f"File not found: {file_path}"
 
-    approval = interrupt({
-        "action": "replace_code",
-        "file_path": file_path,
-        "old_code": old_code,
-        "new_code": new_code,
-        "message": f"Replace code in '{file_path}'?",
-    })
+    approval = interrupt(
+        {
+            "action": "replace_code",
+            "file_path": file_path,
+            "old_code": old_code,
+            "new_code": new_code,
+            "message": f"Replace code in '{file_path}'?",
+        }
+    )
     if approval not in (True, "y", "yes"):
         return f"Operation cancelled by user: '{file_path}' was NOT replaced."
 
@@ -199,17 +252,24 @@ def replace_code(file_path: str, old_code: str, new_code: str):
 @tool
 def delete_file(file_path: str):
     """Delete a file in the workspace."""
+    try:
+        validate_file_path(file_path)
+    except ValidationError as e:
+        return f"Access Denied by Guardrails: {e}"
+
     abs_path = _resolve_safe_path(file_path)
     if abs_path is None:
         return f"Access denied: File '{file_path}' is outside the workspace."
     if not abs_path.exists():
         return f"File not found: {file_path}"
 
-    approved = interrupt({
-        "action": "delete_file",
-        "file_path": file_path,
-        "message": f"Delete '{file_path}' from workspace ({abs_path})?",
-    })
+    approved = interrupt(
+        {
+            "action": "delete_file",
+            "file_path": file_path,
+            "message": f"Delete '{file_path}' from workspace ({abs_path})?",
+        }
+    )
 
     if not approved or approved not in (True, "y", "yes"):
         return f"Operation cancelled by user: '{file_path}' was NOT deleted."
@@ -221,11 +281,18 @@ def delete_file(file_path: str):
 @tool
 def run_terminal_cmd(cmd: str):
     """Run a terminal command in the workspace directory. Requires human approval."""
-    approval = interrupt({
-        "action": "run_terminal_cmd",
-        "cmd": cmd,
-        "message": f"Run command '{cmd}'?",
-    })
+    try:
+        validate_terminal_command(cmd)
+    except ValidationError as e:
+        return f"Execution Blocked by Guardrails: {e}"
+
+    approval = interrupt(
+        {
+            "action": "run_terminal_cmd",
+            "cmd": cmd,
+            "message": f"Run command '{cmd}'?",
+        }
+    )
     if approval not in (True, "y", "yes"):
         return f"Operation cancelled by user: '{cmd}' was NOT executed."
 
@@ -241,11 +308,15 @@ def run_terminal_cmd(cmd: str):
         )
         output = proc.stdout
         if proc.stderr:
-            output += ("\n[stderr]\n" + proc.stderr)
-        return output.strip() if output.strip() else f"Command completed with exit code {proc.returncode}"
+            output += "\n[stderr]\n" + proc.stderr
+        return (
+            output.strip()
+            if output.strip()
+            else f"Command completed with exit code {proc.returncode}"
+        )
     except subprocess.TimeoutExpired:
         return "Command timed out after 120 seconds."
-    except Exception as exc: # noqa: BLE001
+    except Exception as exc:  # noqa: BLE001
         return f"Command execution failed: {exc}"
 
 
@@ -261,7 +332,7 @@ def git_status():
             cwd=str(WORKSPACE),
         )
         return res.stdout if res.stdout else "Working tree clean."
-    except Exception as exc: # noqa: BLE001
+    except Exception as exc:  # noqa: BLE001
         return f"Git status error: {exc}"
 
 

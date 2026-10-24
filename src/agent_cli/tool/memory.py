@@ -39,7 +39,9 @@ def delete_memory(memory_id: str, store: BaseStore | None = None) -> bool:
     return True
 
 
-def get_all_memories(store: BaseStore | None = None, limit: int | None = None) -> list[str]:
+def get_all_memories(
+    store: BaseStore | None = None, limit: int | None = None
+) -> list[str]:
     """Retrieve all saved memories as formatted strings."""
     if store is None:
         return []

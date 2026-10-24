@@ -35,7 +35,9 @@ class ChatBotCompleter(Completer):
         "/quit": "Exit the chat",
     }
 
-    def __init__(self, db_path: Path | str | None = None, store: BaseStore | None = None):
+    def __init__(
+        self, db_path: Path | str | None = None, store: BaseStore | None = None
+    ):
         self.db_path = db_path
         self.store = store
 
@@ -44,7 +46,9 @@ class ChatBotCompleter(Completer):
         stripped = text.lstrip()
 
         # 1. Complete @file mentions anywhere in the query
-        last_word = text.rsplit(maxsplit=1)[-1] if text and not text.endswith(" ") else ""
+        last_word = (
+            text.rsplit(maxsplit=1)[-1] if text and not text.endswith(" ") else ""
+        )
         if last_word.startswith("@"):
             query_prefix = last_word[1:].lower()
             files = get_workspace_files()
@@ -66,23 +70,31 @@ class ChatBotCompleter(Completer):
             if cmd == "/switch":
                 for model_key, model_val in settings.models.items():
                     if model_key.lower().startswith(arg.lower()):
-                        yield Completion(model_key, start_position=-len(arg), display_meta=model_val)
+                        yield Completion(
+                            model_key, start_position=-len(arg), display_meta=model_val
+                        )
 
             elif cmd == "/switch-thread":
                 from agent_cli.chat import get_all_threads
 
                 for tid in get_all_threads(self.db_path):
                     if tid.lower().startswith(arg.lower()):
-                        yield Completion(tid, start_position=-len(arg), display_meta="Saved thread")
+                        yield Completion(
+                            tid, start_position=-len(arg), display_meta="Saved thread"
+                        )
 
             elif cmd == "/delete-memory" and self.store is not None:
                 try:
                     for item in self.store.search(("memories", "default"), limit=1000):
                         if item.key.lower().startswith(arg.lower()):
                             preview = item.value.get("fact", "")
-                            meta = (preview[:30] + "...") if len(preview) > 30 else preview
-                            yield Completion(item.key, start_position=-len(arg), display_meta=meta)
-                except Exception: # noqa: BLE001, S110
+                            meta = (
+                                (preview[:30] + "...") if len(preview) > 30 else preview
+                            )
+                            yield Completion(
+                                item.key, start_position=-len(arg), display_meta=meta
+                            )
+                except Exception:  # noqa: BLE001, S110
                     pass
             return
 
@@ -90,7 +102,9 @@ class ChatBotCompleter(Completer):
         if stripped.startswith("/"):
             for cmd, desc in self.COMMANDS.items():
                 if cmd.startswith(stripped.lower()):
-                    yield Completion(cmd, start_position=-len(stripped), display_meta=desc)
+                    yield Completion(
+                        cmd, start_position=-len(stripped), display_meta=desc
+                    )
 
 
 def create_chat_session(
@@ -102,13 +116,15 @@ def create_chat_session(
     """Create a configured PromptSession with persistent history, auto-suggest, autocomplete, and statusline."""
     completer = ChatBotCompleter(db_path=db_path, store=store)
 
-    custom_style = Style.from_dict({
-        "prompt": "ansicyan bold",
-        "completion-menu.completion": "bg:#2b2b2b #ffffff",
-        "completion-menu.completion.current": "bg:#00aa00 #ffffff bold",
-        "completion-menu.meta.completion": "bg:#222222 #aaaaaa",
-        "completion-menu.meta.completion.current": "bg:#00aa00 #ffffff",
-    })
+    custom_style = Style.from_dict(
+        {
+            "prompt": "ansicyan bold",
+            "completion-menu.completion": "bg:#2b2b2b #ffffff",
+            "completion-menu.completion.current": "bg:#00aa00 #ffffff bold",
+            "completion-menu.meta.completion": "bg:#222222 #aaaaaa",
+            "completion-menu.meta.completion.current": "bg:#00aa00 #ffffff",
+        }
+    )
 
     kwargs: dict[str, Any] = {
         "completer": completer,

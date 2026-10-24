@@ -34,7 +34,9 @@ BINARY_EXTENSIONS = {
 MAX_FILE_BYTES = 250_000  # 250 KB limit per attached file
 
 
-def get_workspace_files(base_dir: Path | None = None, max_files: int = 250) -> list[str]:
+def get_workspace_files(
+    base_dir: Path | None = None, max_files: int = 250
+) -> list[str]:
     """Retrieve relative paths of non-binary source files in the workspace."""
     root = Path(base_dir) if base_dir is not None else Path.cwd()
     if not root.exists():
@@ -59,7 +61,9 @@ def get_workspace_files(base_dir: Path | None = None, max_files: int = 250) -> l
     return sorted(collected)
 
 
-def expand_file_mentions(query: str, base_dir: Path | None = None) -> tuple[str, list[str]]:
+def expand_file_mentions(
+    query: str, base_dir: Path | None = None
+) -> tuple[str, list[str]]:
     """Detect @filepath mentions in query and append file contents as Markdown context."""
     root = Path(base_dir) if base_dir is not None else Path.cwd()
     attached_files: list[str] = []
@@ -72,7 +76,10 @@ def expand_file_mentions(query: str, base_dir: Path | None = None) -> tuple[str,
         rel_str = m.group(1).replace("\\", "/")
         target_path = root / rel_str
 
-        if target_path.is_file() and target_path.suffix.lower() not in BINARY_EXTENSIONS:
+        if (
+            target_path.is_file()
+            and target_path.suffix.lower() not in BINARY_EXTENSIONS
+        ):
             if target_path.stat().st_size > MAX_FILE_BYTES:
                 continue
 
@@ -80,8 +87,7 @@ def expand_file_mentions(query: str, base_dir: Path | None = None) -> tuple[str,
                 content = target_path.read_text(encoding="utf-8", errors="replace")
                 ext = target_path.suffix.lstrip(".") or "text"
                 attachment = (
-                    f"\n\n--- [Attached File: {rel_str}] ---\n"
-                    f"```{ext}\n{content}\n```"
+                    f"\n\n--- [Attached File: {rel_str}] ---\n```{ext}\n{content}\n```"
                 )
                 file_attachments.append(attachment)
                 attached_files.append(rel_str)

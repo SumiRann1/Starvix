@@ -25,7 +25,10 @@ def test_completer_slash_commands():
 def test_completer_switch_models():
     completer = ChatBotCompleter()
 
-    with patch("agent_cli.ui.completer.settings.models", {"gpt_oss_20b": "model1", "gemini_flash": "model2"}):
+    with patch(
+        "agent_cli.ui.completer.settings.models",
+        {"gpt_oss_20b": "model1", "gemini_flash": "model2"},
+    ):
         doc = Document("/switch ")
         completions = list(completer.get_completions(doc, None))
         assert [c.text for c in completions] == ["gpt_oss_20b", "gemini_flash"]
@@ -39,7 +42,9 @@ def test_completer_switch_models():
 def test_completer_switch_threads():
     completer = ChatBotCompleter(db_path="dummy.sqlite")
 
-    with patch("agent_cli.chat.get_all_threads", return_value=["thread-alpha", "thread-beta"]):
+    with patch(
+        "agent_cli.chat.get_all_threads", return_value=["thread-alpha", "thread-beta"]
+    ):
         doc = Document("/switch-thread ")
         completions = list(completer.get_completions(doc, None))
         assert [c.text for c in completions] == ["thread-alpha", "thread-beta"]

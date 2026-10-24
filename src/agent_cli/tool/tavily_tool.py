@@ -35,4 +35,3 @@ def get_tools_sync():
             return pool.submit(asyncio.run, client.get_tools()).result()
 
     return asyncio.run(client.get_tools())
-

@@ -7,7 +7,12 @@ from agent_cli.ui.statusline import get_statusline, resolve_statusbar_colors
 
 
 def test_get_statusline_defaults():
-    config = {"configurable": {"model": "groq:openai/gpt-oss-20b", "thread_id": "session-12345"}}
+    config = {
+        "configurable": {
+            "model": "groq:openai/gpt-oss-20b",
+            "thread_id": "session-12345",
+        }
+    }
     result = get_statusline(config)
     assert isinstance(result, HTML)
     html_str = result.value
@@ -20,7 +25,12 @@ def test_get_statusline_defaults():
 def test_get_statusline_with_memories():
     mock_store = Mock()
     mock_store.search.return_value = ["item1", "item2", "item3"]
-    config = {"configurable": {"model": "openrouter:nvidia/nemotron-3-ultra-550b", "thread_id": "session-long-id-12345678"}}
+    config = {
+        "configurable": {
+            "model": "openrouter:nvidia/nemotron-3-ultra-550b",
+            "thread_id": "session-long-id-12345678",
+        }
+    }
     result = get_statusline(config, store=mock_store)
     html_str = result.value
     assert "Memories:</b>" in html_str

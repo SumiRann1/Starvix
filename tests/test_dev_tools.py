@@ -116,7 +116,9 @@ def test_read_relevant_lines_success(workspace):
     content = "\n".join([f"Line {i}" for i in range(1, 11)])
     (workspace / "multiline.txt").write_text(content)
 
-    res = read_relevant_lines.invoke({"file_path": "multiline.txt", "start_line": 3, "end_line": 5})
+    res = read_relevant_lines.invoke(
+        {"file_path": "multiline.txt", "start_line": 3, "end_line": 5}
+    )
     assert "3: Line 3" in res
     assert "4: Line 4" in res
     assert "5: Line 5" in res
@@ -125,7 +127,9 @@ def test_read_relevant_lines_success(workspace):
 
 
 def test_read_relevant_lines_not_found(workspace):
-    res = read_relevant_lines.invoke({"file_path": "missing.txt", "start_line": 1, "end_line": 2})
+    res = read_relevant_lines.invoke(
+        {"file_path": "missing.txt", "start_line": 1, "end_line": 2}
+    )
     assert "File not found" in res
 
 
@@ -168,7 +172,9 @@ def test_get_file_outlines_not_found(workspace):
 def test_write_file_creates_file_and_parents(workspace):
     nested_path = "src/modules/new_service.py"
     with patch("agent_cli.tool.dev_tools.interrupt", return_value=True):
-        res = write_file.invoke({"file_path": nested_path, "content": "print('created')"})
+        res = write_file.invoke(
+            {"file_path": nested_path, "content": "print('created')"}
+        )
         assert "File written: src/modules/new_service.py" in res
 
     created = workspace / "src" / "modules" / "new_service.py"
@@ -179,7 +185,9 @@ def test_write_file_creates_file_and_parents(workspace):
 def test_write_file_cancelled(workspace):
     file_p = workspace / "cancelled.py"
     with patch("agent_cli.tool.dev_tools.interrupt", return_value=False):
-        res = write_file.invoke({"file_path": "cancelled.py", "content": "print('cancelled')"})
+        res = write_file.invoke(
+            {"file_path": "cancelled.py", "content": "print('cancelled')"}
+        )
         assert "Operation cancelled by user" in res
     assert not file_p.exists()
 
@@ -190,11 +198,13 @@ def test_replace_code_approved(workspace):
     file_p.write_text("old_function_name()")
 
     with patch("agent_cli.tool.dev_tools.interrupt", return_value=True):
-        res = replace_code.invoke({
-            "file_path": "code.py",
-            "old_code": "old_function_name",
-            "new_code": "new_function_name",
-        })
+        res = replace_code.invoke(
+            {
+                "file_path": "code.py",
+                "old_code": "old_function_name",
+                "new_code": "new_function_name",
+            }
+        )
         assert "Code replaced in file" in res
         assert file_p.read_text() == "new_function_name()"
 
@@ -204,11 +214,13 @@ def test_replace_code_cancelled(workspace):
     file_p.write_text("old_code()")
 
     with patch("agent_cli.tool.dev_tools.interrupt", return_value=False):
-        res = replace_code.invoke({
-            "file_path": "code.py",
-            "old_code": "old_code",
-            "new_code": "new_code",
-        })
+        res = replace_code.invoke(
+            {
+                "file_path": "code.py",
+                "old_code": "old_code",
+                "new_code": "new_code",
+            }
+        )
         assert "Operation cancelled by user" in res
         assert file_p.read_text() == "old_code()"
 
@@ -218,20 +230,24 @@ def test_replace_code_snippet_not_found(workspace):
     file_p.write_text("def hello(): pass")
 
     with patch("agent_cli.tool.dev_tools.interrupt", return_value=True):
-        res = replace_code.invoke({
-            "file_path": "code.py",
-            "old_code": "def goodbye():",
-            "new_code": "def updated():",
-        })
+        res = replace_code.invoke(
+            {
+                "file_path": "code.py",
+                "old_code": "def goodbye():",
+                "new_code": "def updated():",
+            }
+        )
         assert "Target code snippet not found" in res
 
 
 def test_replace_code_file_not_found(workspace):
-    res = replace_code.invoke({
-        "file_path": "non_existent.py",
-        "old_code": "a",
-        "new_code": "b",
-    })
+    res = replace_code.invoke(
+        {
+            "file_path": "non_existent.py",
+            "old_code": "a",
+            "new_code": "b",
+        }
+    )
     assert "File not found" in res
 
 
@@ -278,15 +294,26 @@ def test_run_terminal_cmd_cancelled(workspace):
         patch("agent_cli.tool.dev_tools.interrupt", return_value=False),
         patch("subprocess.run") as mock_run,
     ):
-        res = run_terminal_cmd.invoke({"cmd": "rm -rf ."})
+        res = run_terminal_cmd.invoke({"cmd": "echo 'cancelling'"})
         assert "Operation cancelled by user" in res
         mock_run.assert_not_called()
+
+
+def test_run_terminal_cmd_blocked_by_guardrails(workspace):
+    with patch("agent_cli.tool.dev_tools.interrupt") as mock_interrupt:
+        res = run_terminal_cmd.invoke({"cmd": "rm -rf ."})
+        assert "Execution Blocked by Guardrails" in res
+        assert "Dangerous command detected" in res
+        mock_interrupt.assert_not_called()
 
 
 def test_run_terminal_cmd_timeout(workspace):
     with (
         patch("agent_cli.tool.dev_tools.interrupt", return_value=True),
-        patch("subprocess.run", side_effect=subprocess.TimeoutExpired(cmd="sleep 1000", timeout=120)),
+        patch(
+            "subprocess.run",
+            side_effect=subprocess.TimeoutExpired(cmd="sleep 1000", timeout=120),
+        ),
     ):
         res = run_terminal_cmd.invoke({"cmd": "sleep 1000"})
         assert "Command timed out" in res
@@ -302,7 +329,9 @@ def test_git_status_clean(workspace):
 
 def test_git_status_dirty(workspace):
     with patch("subprocess.run") as mock_run:
-        mock_run.return_value = Mock(stdout=" M sample.py\n?? untracked.txt\n", returncode=0)
+        mock_run.return_value = Mock(
+            stdout=" M sample.py\n?? untracked.txt\n", returncode=0
+        )
         res = git_status.invoke({})
         assert "M sample.py" in res
 
@@ -355,12 +384,16 @@ def test_write_file_rejects_path_outside_workspace(tmp_path):
 
     with patch("agent_cli.tool.dev_tools.WORKSPACE", workspace):
         # 1. Attempt to write outside via relative traversal
-        res_rel = write_file.invoke({"file_path": "../malicious_file.txt", "content": "injected"})
+        res_rel = write_file.invoke(
+            {"file_path": "../malicious_file.txt", "content": "injected"}
+        )
         assert "Access denied" in res_rel
         assert not outside_file.exists()
 
         # 2. Attempt to write outside via absolute path
-        res_abs = write_file.invoke({"file_path": str(outside_file), "content": "injected"})
+        res_abs = write_file.invoke(
+            {"file_path": str(outside_file), "content": "injected"}
+        )
         assert "Access denied" in res_abs
         assert not outside_file.exists()
 
@@ -383,6 +416,12 @@ def test_other_tools_reject_path_outside_workspace(tmp_path):
 
     with patch("agent_cli.tool.dev_tools.WORKSPACE", workspace):
         assert "Access denied" in list_files.invoke({"directory": "../outside"})
-        assert "Access denied" in grep_search.invoke({"query": "q", "path": "../outside"})
-        assert "Access denied" in find_files.invoke({"query": "q", "directory": "../outside"})
-        assert "Access denied" in replace_code.invoke({"file_path": "../outside", "old_code": "a", "new_code": "b"})
+        assert "Access denied" in grep_search.invoke(
+            {"query": "q", "path": "../outside"}
+        )
+        assert "Access denied" in find_files.invoke(
+            {"query": "q", "directory": "../outside"}
+        )
+        assert "Access denied" in replace_code.invoke(
+            {"file_path": "../outside", "old_code": "a", "new_code": "b"}
+        )

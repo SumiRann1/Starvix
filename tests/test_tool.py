@@ -22,7 +22,10 @@ async def test_get_tools_async():
         """A test tool."""
         return query
 
-    with patch("agent_cli.tool.tavily_tool.client.get_tools", new=AsyncMock(return_value=[dummy_tool])):
+    with patch(
+        "agent_cli.tool.tavily_tool.client.get_tools",
+        new=AsyncMock(return_value=[dummy_tool]),
+    ):
         tools = await get_tools()
         assert len(tools) == 1
         assert tools[0].name == "dummy_tool"
@@ -34,7 +37,10 @@ def test_get_tools_sync_without_running_loop():
         """A test tool."""
         return query
 
-    with patch("agent_cli.tool.tavily_tool.client.get_tools", new=AsyncMock(return_value=[dummy_tool])):
+    with patch(
+        "agent_cli.tool.tavily_tool.client.get_tools",
+        new=AsyncMock(return_value=[dummy_tool]),
+    ):
         tools = get_tools_sync()
         assert len(tools) == 1
         assert tools[0].name == "dummy_tool"
@@ -47,7 +53,10 @@ async def test_get_tools_sync_with_running_loop():
         """A test tool."""
         return query
 
-    with patch("agent_cli.tool.tavily_tool.client.get_tools", new=AsyncMock(return_value=[dummy_tool])):
+    with patch(
+        "agent_cli.tool.tavily_tool.client.get_tools",
+        new=AsyncMock(return_value=[dummy_tool]),
+    ):
         # Inside an async test, an event loop is running, triggering the ThreadPoolExecutor branch
         tools = get_tools_sync()
         assert len(tools) == 1
@@ -92,8 +101,7 @@ def test_real_model_calls_tool():
     messages = result["messages"]
 
     tool_messages = [
-        message for message in messages
-        if isinstance(message, ToolMessage)
+        message for message in messages if isinstance(message, ToolMessage)
     ]
 
     assert tool_messages, "The model did not execute any tool."

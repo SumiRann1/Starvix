@@ -70,7 +70,13 @@ def test_graph_tool_execution_with_store():
 
     ai_msg = AIMessage(
         content="",
-        tool_calls=[{"name": "save_memory", "args": {"fact": "Graph injected fact"}, "id": "call_1"}],
+        tool_calls=[
+            {
+                "name": "save_memory",
+                "args": {"fact": "Graph injected fact"},
+                "id": "call_1",
+            }
+        ],
     )
     result = graph.invoke({"messages": [ai_msg]})
     assert any("Graph injected fact" in m.content for m in result["messages"])
@@ -106,7 +112,11 @@ def test_sqlite_store_persistence_across_sessions(tmp_path):
     # Session 1: Put memory into persistent store and close
     with SqliteStore.from_conn_string(str(db_file)) as store_1:
         store_1.setup()
-        store_1.put(NAMESPACE, key="persisted-1", value={"fact": "Persistent Fact across sessions"})
+        store_1.put(
+            NAMESPACE,
+            key="persisted-1",
+            value={"fact": "Persistent Fact across sessions"},
+        )
 
     # Session 2: Open a fresh SqliteStore instance from the same file
     with SqliteStore.from_conn_string(str(db_file)) as store_2:
@@ -128,7 +138,9 @@ def test_search_memory_bounded_limit():
     """Verify search_memory bounds results to 5 by default and caps at 10."""
     store = InMemoryStore()
     for i in range(20):
-        store.put(NAMESPACE, key=f"pref-{i}", value={"fact": f"User preference number {i}"})
+        store.put(
+            NAMESPACE, key=f"pref-{i}", value={"fact": f"User preference number {i}"}
+        )
 
     # Default invocation returns 5 results
     res_default = search_memory.invoke({"query": "preference", "store": store})
@@ -136,7 +148,8 @@ def test_search_memory_bounded_limit():
     assert len(lines_default) == 5
 
     # Limit of 100 is capped to 10 to protect context window
-    res_capped = search_memory.invoke({"query": "preference", "store": store, "limit": 100})
+    res_capped = search_memory.invoke(
+        {"query": "preference", "store": store, "limit": 100}
+    )
     lines_capped = [line for line in res_capped.split("\n") if line.strip()]
     assert len(lines_capped) == 10
-

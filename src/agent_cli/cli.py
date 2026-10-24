@@ -15,10 +15,12 @@ app = typer.Typer(
 
 console = Console()
 
+
 @app.callback()
 def main():
     """Forge — a local-first LangGraph agent runtime."""
     return
+
 
 @app.command()
 def status():
@@ -26,6 +28,7 @@ def status():
     console.print("[bold]Forge Agent Runtime[/bold]")
     console.print("CLI initialized successfully.")
     console.print("Model execution and persistent storage are separate milestones.")
+
 
 @app.command()
 def threads():
@@ -38,6 +41,7 @@ def threads():
     for tid in saved_threads:
         console.print(f"  - [cyan]{tid}[/cyan]")
     console.print("\n[dim]To resume a thread, run:[/dim] forge chat --thread <id>")
+
 
 @app.command()
 def chat(
@@ -53,6 +57,7 @@ def chat(
         asyncio.run(chat_main(thread_id=thread))
     except KeyboardInterrupt:
         console.print("\n[yellow]Chat interrupted.[/yellow]")
+
 
 if __name__ == "__main__":
     app()

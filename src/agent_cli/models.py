@@ -25,6 +25,7 @@ PROVIDERS = {
     },
 }
 
+
 def get_model(model_name: str | None = None):
     """Select a Particular model to use it"""
     model_str = model_name or settings.current_model
@@ -33,7 +34,9 @@ def get_model(model_name: str | None = None):
 
     provider_name, model_id = model_str.split(":", 1)
     if provider_name not in PROVIDERS:
-        raise ValueError(f"Provider '{provider_name}' not supported. Supported providers: {list(PROVIDERS.keys())}")
+        raise ValueError(
+            f"Provider '{provider_name}' not supported. Supported providers: {list(PROVIDERS.keys())}"
+        )
 
     config = PROVIDERS[provider_name]
     api_key = os.getenv(config["api_key_env"])
@@ -46,6 +49,7 @@ def get_model(model_name: str | None = None):
         temperature=settings.temperature,
         **config["extra"],
     )
+
 
 def list_models():
     return list(settings.models.keys())

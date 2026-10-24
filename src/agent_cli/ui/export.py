@@ -14,9 +14,10 @@ def copy_to_clipboard(text: str) -> bool:
 
     try:
         import pyperclip
+
         pyperclip.copy(text)
         return True
-    except Exception: # noqa: BLE001, S110
+    except Exception:  # noqa: BLE001, S110
         pass
 
     # Fallback to Linux wl-copy (Wayland)
@@ -91,13 +92,17 @@ def export_thread_to_markdown(
                     lines.append(f"### 🤖 Assistant\n{content}\n")
                 elif cls_name == "ToolMessage":
                     tool_name = getattr(msg, "name", "tool")
-                    lines.append(f"### 🛠️ Tool: `{tool_name}`\n```text\n{content}\n```\n")
+                    lines.append(
+                        f"### 🛠️ Tool: `{tool_name}`\n```text\n{content}\n```\n"
+                    )
                 else:
                     lines.append(f"### 💬 {cls_name}\n{content}\n")
 
-            safe_tid = "".join(c if c.isalnum() or c in "-_" else "_" for c in thread_id)
+            safe_tid = "".join(
+                c if c.isalnum() or c in "-_" else "_" for c in thread_id
+            )
             out_file = settings.export_dir / f"conversation_{safe_tid}.md"
             out_file.write_text("\n".join(lines), encoding="utf-8")
             return out_file
-    except Exception: # noqa: BLE001
+    except Exception:  # noqa: BLE001
         return None

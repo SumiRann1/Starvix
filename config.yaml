@@ -11,6 +11,8 @@ models:
   gemini_flash_2_5_lite: "google:gemini-2.5-flash-lite"
   gemini_flash_2_5: "google:gemini-2.5-flash"
   nemotron_3_ultra: "openrouter:nvidia/nemotron-3-ultra-550b-a55b:free"
+  nemotron_3_super_vl: "openrouter:nvidia/nemotron-3.5-super-vl:free"
+  nemotron_3_super_120b: "openrouter:nvidia/nemotron-3-super-120b-a12b:free"
 
 # Statusbar appearance & theme
 # Presets: tokyo_night, catppuccin, dracula, nord, monokai, cyberpunk, matrix, minimal

@@ -88,7 +88,10 @@ def test_handle_command_help(capsys):
 def test_handle_command_models(capsys):
     config = {"configurable": {"model": "test"}}
     with (
-        patch("agent_cli.chat.settings.models", {"model_1": "provider:m1", "model_2": "provider:m2"}),
+        patch(
+            "agent_cli.chat.settings.models",
+            {"model_1": "provider:m1", "model_2": "provider:m2"},
+        ),
         patch("agent_cli.chat.settings.current_model", "provider:m1"),
     ):
         handled = _handle_command("/models", config)
@@ -255,7 +258,6 @@ async def test_main_with_custom_thread(capsys):
     assert "custom-thread-999" in captured.out
 
 
-
 @pytest.mark.anyio
 async def test_main_exits_on_exit_command(capsys):
     with (
@@ -281,25 +283,49 @@ async def test_main_handles_slash_command_and_exits(capsys):
 @pytest.mark.anyio
 async def test_main_executes_streaming_events(capsys):
     async def fake_stream(*args, **kwargs):
-        yield {"event": "on_chain_start", "name": "LangGraph", "metadata": {}, "data": {}}
+        yield {
+            "event": "on_chain_start",
+            "name": "LangGraph",
+            "metadata": {},
+            "data": {},
+        }
         yield {"event": "on_chain_start", "name": "chat", "metadata": {}, "data": {}}
         yield {
             "event": "on_chat_model_start",
-            "metadata": {"ls_model_name": "test-llm", "ls_provider": "google", "ls_temperature": 0.7},
+            "metadata": {
+                "ls_model_name": "test-llm",
+                "ls_provider": "google",
+                "ls_temperature": 0.7,
+            },
             "data": {},
         }
-        yield {"event": "on_chat_model_stream", "data": {"chunk": DummyChunk(content="Hello streaming!")}}
+        yield {
+            "event": "on_chat_model_stream",
+            "data": {"chunk": DummyChunk(content="Hello streaming!")},
+        }
         yield {
             "event": "on_chat_model_end",
             "data": {
                 "output": Mock(
-                    usage_metadata={"input_tokens": 5, "output_tokens": 10, "total_tokens": 15},
+                    usage_metadata={
+                        "input_tokens": 5,
+                        "output_tokens": 10,
+                        "total_tokens": 15,
+                    },
                     response_metadata={"finish_reason": "stop"},
                 )
             },
         }
-        yield {"event": "on_tool_start", "name": "tavily_search", "data": {"input": "weather query"}}
-        yield {"event": "on_tool_end", "name": "tavily_search", "data": {"output": Mock(text="sunny")}}
+        yield {
+            "event": "on_tool_start",
+            "name": "tavily_search",
+            "data": {"input": "weather query"},
+        }
+        yield {
+            "event": "on_tool_end",
+            "name": "tavily_search",
+            "data": {"output": Mock(text="sunny")},
+        }
         yield {"event": "on_chain_end", "name": "chat", "data": {}}
         yield {"event": "on_chain_end", "name": "LangGraph", "data": {}}
 
@@ -383,12 +409,17 @@ def test_get_all_threads_handles_sqlite_error(tmp_path):
 async def test_main_handles_mcp_tools_failure(capsys):
     with (
         patch("builtins.input", side_effect=["exit"]),
-        patch("agent_cli.chat.get_tools_sync", side_effect=RuntimeError("MCP server connection refused")),
+        patch(
+            "agent_cli.chat.get_tools_sync",
+            side_effect=RuntimeError("MCP server connection refused"),
+        ),
         patch("agent_cli.chat.build_graph"),
     ):
         await main()
     captured = capsys.readouterr()
-    assert "Warning: MCP tools unavailable: MCP server connection refused" in captured.out
+    assert (
+        "Warning: MCP tools unavailable: MCP server connection refused" in captured.out
+    )
 
 
 def test_handle_command_copy_no_response(capsys):
@@ -435,5 +466,3 @@ def test_handle_command_export_failure(capsys):
         assert handled is True
         captured = capsys.readouterr()
         assert "Could not export thread 'thread-exp'" in captured.out
-
-

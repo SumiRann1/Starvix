@@ -5,7 +5,8 @@ from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
 from agent_cli.node import chat_node, make_chat_node
 from agent_cli.state import SYSTEM_PROMPT
 
-'''This file tests the model selection and the default model fallback'''
+"""This file tests the model selection and the default model fallback"""
+
 
 def test_chat_node_uses_model_selected_for_run():
     fake_model = Mock()
@@ -36,11 +37,12 @@ def test_chat_node_falls_back_to_default_model():
     with patch("agent_cli.node.settings") as mock_settings:
         mock_settings.current_model = "default-test-model"
 
-        with patch("agent_cli.node.get_model", return_value=fake_model) as mock_get_model:
+        with patch(
+            "agent_cli.node.get_model", return_value=fake_model
+        ) as mock_get_model:
             chat_node({"messages": [HumanMessage(content="Hi")]}, {"configurable": {}})
 
     mock_get_model.assert_called_once_with("default-test-model")
-
 
 
 def test_chat_node_replaces_existing_system_message():
@@ -62,9 +64,7 @@ def test_chat_node_replaces_existing_system_message():
 
     assert isinstance(sent_messages[0], SystemMessage)
     assert sent_messages[0].content == SYSTEM_PROMPT
-    assert sum(
-        isinstance(message, SystemMessage) for message in sent_messages
-    ) == 1
+    assert sum(isinstance(message, SystemMessage) for message in sent_messages) == 1
 
 
 def test_chat_node_does_not_mutate_input_history():
@@ -119,4 +119,3 @@ def test_make_chat_node_binds_tools():
 
     fake_model.bind_tools.assert_called_once_with(["tool1", "tool2"])
     assert result["messages"][0].content == "Response with tools"
-

@@ -40,6 +40,7 @@ from .tool.tavily_tool import get_tools_sync
 CHECKPOINT_DB_PATH = Path(str(settings.data_dir)) / "checkpoints.sqlite"
 STORE_DB_PATH = Path(str(settings.data_dir)) / "store.sqlite"
 
+
 def get_all_threads(db_path: Path | str | None = None) -> list[str]:
     """Retrieve all unique thread IDs stored in the SQLite checkpoints database."""
     target_path = Path(db_path) if db_path is not None else CHECKPOINT_DB_PATH
@@ -62,8 +63,6 @@ def get_all_threads(db_path: Path | str | None = None) -> list[str]:
         return []
 
 
-
-
 def _handle_command(
     input_query: str,
     config: dict,
@@ -82,7 +81,11 @@ def _handle_command(
     elif cmd == "/models":
         print(f"\n{BOLD}Available models:{RESET}")
         for key, val in settings.models.items():
-            current_marker = f" {GREEN}(current){RESET}" if key == settings.current_model or val == settings.current_model else ""
+            current_marker = (
+                f" {GREEN}(current){RESET}"
+                if key == settings.current_model or val == settings.current_model
+                else ""
+            )
             print(f"  - {CYAN}{key}{RESET} -> {val}{current_marker}")
         print()
         return True
@@ -97,7 +100,9 @@ def _handle_command(
         try:
             set_current_model(model_name)
             config["configurable"]["model"] = settings.current_model
-            print(f"{GREEN}✓ Switched to model: {model_name} ({settings.current_model}){RESET}\n")
+            print(
+                f"{GREEN}✓ Switched to model: {model_name} ({settings.current_model}){RESET}\n"
+            )
         except ValueError:
             print(f"{YELLOW}Error: Model '{model_name}' not found.{RESET}")
             print(f"Available: {', '.join(settings.models.keys())}\n")
@@ -116,10 +121,14 @@ def _handle_command(
             print(f"  {DIM}(No saved threads found){RESET}")
         else:
             for tid in threads:
-                current_marker = f" {GREEN}(current){RESET}" if tid == current_thread else ""
+                current_marker = (
+                    f" {GREEN}(current){RESET}" if tid == current_thread else ""
+                )
                 print(f"  - {CYAN}{tid}{RESET}{current_marker}")
         if current_thread != "-" and current_thread not in threads:
-            print(f"\n{DIM}Current unsaved session:{RESET} {CYAN}{current_thread}{RESET} {GREEN}(current){RESET}")
+            print(
+                f"\n{DIM}Current unsaved session:{RESET} {CYAN}{current_thread}{RESET} {GREEN}(current){RESET}"
+            )
         print()
         return True
 
@@ -174,7 +183,9 @@ def _handle_command(
             if success:
                 print(f"\n{GREEN}✓ Copied last response to clipboard!{RESET}\n")
             else:
-                print(f"\n{YELLOW}Warning: Could not copy to clipboard on this system.{RESET}\n")
+                print(
+                    f"\n{YELLOW}Warning: Could not copy to clipboard on this system.{RESET}\n"
+                )
         return True
 
     elif cmd == "/export":
@@ -182,16 +193,22 @@ def _handle_command(
         target_db = db_path if db_path is not None else CHECKPOINT_DB_PATH
         exported_path = export_thread_to_markdown(current_thread, target_db)
         if exported_path:
-            print(f"\n{GREEN}✓ Exported conversation to:{RESET} {CYAN}{exported_path}{RESET}\n")
+            print(
+                f"\n{GREEN}✓ Exported conversation to:{RESET} {CYAN}{exported_path}{RESET}\n"
+            )
         else:
-            print(f"\n{YELLOW}Could not export thread '{current_thread}'. (No messages found in history){RESET}\n")
+            print(
+                f"\n{YELLOW}Could not export thread '{current_thread}'. (No messages found in history){RESET}\n"
+            )
         return True
 
     elif cmd in ("/exit", "/quit"):
-        return False 
+        return False
 
     else:
-        print(f"{YELLOW}Unknown command '{cmd}'. Type /help to see available commands.{RESET}\n")
+        print(
+            f"{YELLOW}Unknown command '{cmd}'. Type /help to see available commands.{RESET}\n"
+        )
         return True
 
 
@@ -215,13 +232,17 @@ def _extract_chunk_text(chunk) -> str:
     return ""
 
 
-async def main(thread_id: str | None = None, db_path: Path | str | None = None, store_path: Path | str | None = None):
+async def main(
+    thread_id: str | None = None,
+    db_path: Path | str | None = None,
+    store_path: Path | str | None = None,
+):
 
     # Load tools early and fall back gracefully
     # This enables, if tool loading fails, the CLI can still start the normal chat without tools
     try:
         mcp_tools = get_tools_sync()
-    except Exception as exc: # noqa: BLE001
+    except Exception as exc:  # noqa: BLE001
         print(f"Warning: MCP tools unavailable: {exc}")
         mcp_tools = []
     list_of_tools = [*dev_tools, *memory_tools, *mcp_tools]
@@ -236,10 +257,19 @@ async def main(thread_id: str | None = None, db_path: Path | str | None = None, 
 
     with SqliteStore.from_conn_string(str(active_store_db_path)) as store:
         store.setup()
-        async with AsyncSqliteSaver.from_conn_string(str(active_chkpt_db_path)) as checkpointer:
-            CONFIG = {"configurable": {"thread_id": active_thread, "model": settings.current_model}}
-            graph = build_graph(tools=list_of_tools, checkpointer=checkpointer, store=store)
-            
+        async with AsyncSqliteSaver.from_conn_string(
+            str(active_chkpt_db_path)
+        ) as checkpointer:
+            CONFIG = {
+                "configurable": {
+                    "thread_id": active_thread,
+                    "model": settings.current_model,
+                }
+            }
+            graph = build_graph(
+                tools=list_of_tools, checkpointer=checkpointer, store=store
+            )
+
             display_welcome_banner(CONFIG, tools=list_of_tools)
 
             history_file = active_chkpt_db_path.parent / ".chat_history"
@@ -285,7 +315,9 @@ async def main(thread_id: str | None = None, db_path: Path | str | None = None, 
                 # Expand @file mentions with workspace file contents
                 expanded_query, attached_files = expand_file_mentions(user_query)
                 if attached_files:
-                    print(f"{DIM}[Context Attached: {', '.join(attached_files)}]{RESET}")
+                    print(
+                        f"{DIM}[Context Attached: {', '.join(attached_files)}]{RESET}"
+                    )
 
                 start_time = time.perf_counter()
                 current_model_info = {}
@@ -293,16 +325,23 @@ async def main(thread_id: str | None = None, db_path: Path | str | None = None, 
                 spinner = None
                 if is_tty:
                     try:
-                        spinner = console.status("[bold cyan]Thinking...[/bold cyan]", spinner="dots")
+                        spinner = console.status(
+                            "[bold cyan]Thinking...[/bold cyan]", spinner="dots"
+                        )
                         spinner.start()
-                    except Exception: # noqa: BLE001
+                    except Exception:  # noqa: BLE001
                         spinner = None
 
                 print("\n" + "─" * 60)
                 try:
-                    async def run_stream(stream_input, renderer=renderer, start_time=start_time):
+
+                    async def run_stream(
+                        stream_input, renderer=renderer, start_time=start_time
+                    ):
                         nonlocal spinner, last_assistant_response, current_model_info
-                        async for event in graph.astream_events(input=stream_input, config=CONFIG, version="v2"):
+                        async for event in graph.astream_events(
+                            input=stream_input, config=CONFIG, version="v2"
+                        ):
                             kind = event["event"]
                             name = event.get("name", "")
                             meta = event.get("metadata", {})
@@ -310,8 +349,12 @@ async def main(thread_id: str | None = None, db_path: Path | str | None = None, 
 
                             if kind == "on_chain_start":
                                 if name == "LangGraph":
-                                    thread_id = CONFIG.get("configurable", {}).get("thread_id", "-")
-                                    print(f"{DIM}[Graph] Started (thread_id: {thread_id}){RESET}")
+                                    thread_id = CONFIG.get("configurable", {}).get(
+                                        "thread_id", "-"
+                                    )
+                                    print(
+                                        f"{DIM}[Graph] Started (thread_id: {thread_id}){RESET}"
+                                    )
                                 else:
                                     print(f"{CYAN}[Node: {name}]{RESET} Started")
 
@@ -340,10 +383,16 @@ async def main(thread_id: str | None = None, db_path: Path | str | None = None, 
                                 last_assistant_response = renderer.finish()
                                 output = data.get("output")
                                 usage = getattr(output, "usage_metadata", {}) or {}
-                                resp_meta = getattr(output, "response_metadata", {}) or {}
+                                resp_meta = (
+                                    getattr(output, "response_metadata", {}) or {}
+                                )
 
-                                model_name = resp_meta.get("model_name") or current_model_info.get("model_name", "LLM")
-                                provider = current_model_info.get("provider") or resp_meta.get("model_provider", "")
+                                model_name = resp_meta.get(
+                                    "model_name"
+                                ) or current_model_info.get("model_name", "LLM")
+                                provider = current_model_info.get(
+                                    "provider"
+                                ) or resp_meta.get("model_provider", "")
                                 temp = current_model_info.get("temp", "")
                                 finish = resp_meta.get("finish_reason", "completed")
 
@@ -355,7 +404,11 @@ async def main(thread_id: str | None = None, db_path: Path | str | None = None, 
 
                                 elapsed_gen = time.perf_counter() - start_time
                                 speed_str = ""
-                                if isinstance(c_tokens, (int, float)) and c_tokens > 0 and elapsed_gen > 0:
+                                if (
+                                    isinstance(c_tokens, (int, float))
+                                    and c_tokens > 0
+                                    and elapsed_gen > 0
+                                ):
                                     tok_per_sec = c_tokens / elapsed_gen
                                     speed_str = f" ({tok_per_sec:.1f} tok/s)"
 
@@ -367,9 +420,13 @@ async def main(thread_id: str | None = None, db_path: Path | str | None = None, 
 
                             elif kind == "on_tool_start":
                                 if spinner is not None:
-                                    spinner.update(f"[bold yellow]Executing tool: {name}...[/bold yellow]")
+                                    spinner.update(
+                                        f"[bold yellow]Executing tool: {name}...[/bold yellow]"
+                                    )
                                 tool_input = data.get("input", "")
-                                print(f"\n{YELLOW}[Tool: {name}] Input:{RESET} {tool_input}")
+                                print(
+                                    f"\n{YELLOW}[Tool: {name}] Input:{RESET} {tool_input}"
+                                )
 
                             elif kind == "on_tool_end":
                                 tool_out = data.get("output", "")
@@ -379,7 +436,9 @@ async def main(thread_id: str | None = None, db_path: Path | str | None = None, 
                                     tool_output = tool_out.content
                                 else:
                                     tool_output = str(tool_out) if tool_out else ""
-                                print(f"{YELLOW}[Tool: {name}] Output:{RESET} {tool_output}")
+                                print(
+                                    f"{YELLOW}[Tool: {name}] Output:{RESET} {tool_output}"
+                                )
 
                             elif kind == "on_chain_end":
                                 if name == "LangGraph":
@@ -387,12 +446,16 @@ async def main(thread_id: str | None = None, db_path: Path | str | None = None, 
                                         spinner.stop()
                                         spinner = None
                                     elapsed = time.perf_counter() - start_time
-                                    print(f"{DIM}[Graph] Finished in {elapsed:.2f}s{RESET}")
+                                    print(
+                                        f"{DIM}[Graph] Finished in {elapsed:.2f}s{RESET}"
+                                    )
                                     print("─" * 60 + "\n")
                                 else:
                                     print(f"{CYAN}[Node: {name}]{RESET} Completed")
 
-                    await run_stream({"messages": [HumanMessage(content=expanded_query)]})
+                    await run_stream(
+                        {"messages": [HumanMessage(content=expanded_query)]}
+                    )
 
                     while True:
                         pending_interrupts = []
@@ -406,7 +469,7 @@ async def main(thread_id: str | None = None, db_path: Path | str | None = None, 
                                         for task in getattr(state, "tasks", ())
                                         for hitl in getattr(task, "interrupts", ())
                                     ]
-                            except Exception: # noqa: BLE001
+                            except Exception:  # noqa: BLE001
                                 pending_interrupts = []
 
                         if not pending_interrupts:
@@ -414,17 +477,34 @@ async def main(thread_id: str | None = None, db_path: Path | str | None = None, 
 
                         for hitl in pending_interrupts:
                             if spinner is not None:
-                                spinner.stop()  
+                                spinner.stop()
                                 spinner = None
 
                             payload = hitl.value
-                            msg = payload.get("message") if isinstance(payload, dict) else str(payload)
+                            msg = (
+                                payload.get("message")
+                                if isinstance(payload, dict)
+                                else str(payload)
+                            )
                             print(f"\n{YELLOW}⚠️  [HITL Approval Required]{RESET} {msg}")
 
                             if hasattr(builtins.input, "assert_called"):
-                                choice = input(f"{BOLD}Approve action? [y/N]: {RESET}").strip().lower()
+                                choice = (
+                                    input(f"{BOLD}Approve action? [y/N]: {RESET}")
+                                    .strip()
+                                    .lower()
+                                )
                             else:
-                                choice = (await asyncio.to_thread(input, f"{BOLD}Approve action? [y/N]: {RESET}")).strip().lower()
+                                choice = (
+                                    (
+                                        await asyncio.to_thread(
+                                            input,
+                                            f"{BOLD}Approve action? [y/N]: {RESET}",
+                                        )
+                                    )
+                                    .strip()
+                                    .lower()
+                                )
 
                             is_approved = choice in ("y", "yes")
 
@@ -439,6 +519,6 @@ async def main(thread_id: str | None = None, db_path: Path | str | None = None, 
                     print(f"\n{YELLOW}⚡ Generation cancelled by user.{RESET}\n")
                     continue
 
-    
+
 if __name__ == "__main__":
     asyncio.run(main())

@@ -7,7 +7,7 @@ sys.path.append(str(ROOT))
 
 from agent_cli import get_model, set_current_model, settings
 
-#TESTING THE MODEL SWITCH AND response
+# TESTING THE MODEL SWITCH AND response
 print(settings.current_model)
 res = get_model(settings.current_model).invoke("Hii there, How are you?")
 print(res.content)

@@ -6,7 +6,10 @@ from agent_cli.models import get_model, list_models
 
 
 def test_list_models():
-    with patch("agent_cli.models.settings.models", {"gpt": "groq:gpt", "gemini": "google:gemini"}):
+    with patch(
+        "agent_cli.models.settings.models",
+        {"gpt": "groq:gpt", "gemini": "google:gemini"},
+    ):
         result = list_models()
         assert result == ["gpt", "gemini"]
 

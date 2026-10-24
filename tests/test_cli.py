@@ -37,7 +37,9 @@ def test_cli_threads_empty():
 
 
 def test_cli_threads_with_results():
-    with patch("agent_cli.cli.get_all_threads", return_value=["session-alpha", "session-beta"]):
+    with patch(
+        "agent_cli.cli.get_all_threads", return_value=["session-alpha", "session-beta"]
+    ):
         result = runner.invoke(app, ["threads"])
         assert result.exit_code == 0
         assert "Saved conversation threads:" in result.stdout
@@ -76,4 +78,3 @@ def test_cli_chat_interrupted():
         result = runner.invoke(app, ["chat"])
         assert result.exit_code == 0
         assert "Chat interrupted." in result.stdout
-
