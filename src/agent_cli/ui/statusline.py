@@ -1,9 +1,19 @@
+from pathlib import Path
+
 from langgraph.store.base import BaseStore
 from prompt_toolkit.formatted_text import HTML
 
 from agent_cli.config import settings
 
 THEMES: dict[str, dict[str, str]] = {
+    "strands": {
+        "bg": "#101213",
+        "fg": "#eceff1",
+        "model_color": "#eceff1",
+        "thread_color": "#a2a9ad",
+        "memory_color": "#68f58a",
+        "help_color": "#68f58a",
+    },
     "tokyo_night": {
         "bg": "#1a1b26",
         "fg": "#c0caf5",
@@ -74,8 +84,8 @@ THEMES: dict[str, dict[str, str]] = {
 def resolve_statusbar_colors(sb_config=None) -> dict[str, str]:
     """Resolve statusbar theme and explicit color overrides from configuration."""
     sb = sb_config if sb_config is not None else getattr(settings, "statusbar", None)
-    theme_name = getattr(sb, "theme", "tokyo_night") if sb else "tokyo_night"
-    colors = dict(THEMES.get(theme_name, THEMES["tokyo_night"]))
+    theme_name = getattr(sb, "theme", "strands") if sb else "strands"
+    colors = dict(THEMES.get(theme_name, THEMES["strands"]))
 
     if sb:
         for key in (
@@ -93,7 +103,7 @@ def resolve_statusbar_colors(sb_config=None) -> dict[str, str]:
 
 
 def get_statusline(config: dict, store: BaseStore | None = None) -> HTML:
-    """Generate a formatted bottom status bar showing active model, thread, and memory stats."""
+    """Generate a formatted bottom status bar inspired by Strands CLI."""
     configurable = config.get("configurable", {}) if config else {}
     current_model = configurable.get("model") or settings.current_model
 
@@ -105,8 +115,8 @@ def get_statusline(config: dict, store: BaseStore | None = None) -> HTML:
     else:
         model_display = current_model
 
-    if len(model_display) > 20:
-        model_display = model_display[:18] + ".."
+    if len(model_display) > 28:
+        model_display = model_display[:26] + ".."
 
     thread_id = configurable.get("thread_id", "-")
     if len(thread_id) > 16:
@@ -122,13 +132,29 @@ def get_statusline(config: dict, store: BaseStore | None = None) -> HTML:
         except Exception:  # noqa: BLE001
             mem_count = 0
 
+    try:
+        cwd = Path.cwd()
+        home = Path.home()
+        if cwd == home:
+            path_display = "~"
+        elif cwd.is_relative_to(home):
+            path_display = f"~/{cwd.relative_to(home)}"
+        else:
+            path_display = str(cwd)
+        if len(path_display) > 35:
+            path_display = "..." + path_display[-32:]
+    except Exception:  # noqa: BLE001
+        path_display = "workspace"
+
     c = resolve_statusbar_colors()
+    meter = "░░░░░░░░░"
 
     return HTML(
-        f'<style bg="{c["bg"]}" fg="{c["fg"]}"> '
-        f'<b>[🤖 Model:</b> <style fg="{c["model_color"]}">{model_display}</style><b>]</b> '
-        f'<b>[🧵 Thread:</b> <style fg="{c["thread_color"]}">{thread_display}</style><b>]</b> '
-        f'<b>[🧠 Memories:</b> <style fg="{c["memory_color"]}">{mem_count}</style><b>]</b> '
-        f'<b>[<style fg="{c["help_color"]}">⌨️  /help</style>]</b> '
+        f'<style bg="{c["bg"]}" fg="{c["fg"]}">'
+        f'<style fg="{c["model_color"]}"><b>{model_display}</b></style> '
+        f'<style fg="#646c71">•</style> <style fg="{c["thread_color"]}">Thread: {thread_display}</style> '
+        f'<style fg="#646c71">•</style> <b>Memories:</b> <style fg="{c["memory_color"]}">{mem_count}</style> <style fg="#646c71">{meter}</style> '
+        f'<style fg="#646c71">-</style> <style fg="#a2a9ad">{path_display}</style>  '
+        f'<style fg="{c["help_color"]}">/help</style>'
         f"</style>"
     )

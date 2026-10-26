@@ -111,10 +111,10 @@ class RedactSecretsValidator(Validator):
 
 
 INJECTION_PATTERNS = [
-    r"ignore\s+(all\s+)?previous\s+instructions",
-    r"disregard\s+(all\s+)?(prior|previous)\s+instructions",
-    r"system\s+prompt\s+override",
-    r"you\s+are\s+now\s+in\s+developer\s+mode",
+    r"ignore\s+(all\s+)?(previous|prior|system|developer|safety|above)?\s*(instructions|prompts?|settings|rules|directives|guidelines)",
+    r"disregard\s+(all\s+)?(prior|previous|system|safety)?\s*(instructions|prompts?|rules|settings|guidelines)",
+    r"system\s+(prompt|settings?|instructions?)\s+override",
+    r"you\s+are\s+now\s+(in\s+)?(developer\s+mode|unrestricted|an?\s+unrestricted)",
     r"jailbreak",
 ]
 

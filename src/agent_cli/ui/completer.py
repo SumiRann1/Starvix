@@ -5,8 +5,10 @@ from langgraph.store.base import BaseStore
 from prompt_toolkit import PromptSession
 from prompt_toolkit.auto_suggest import AutoSuggestFromHistory
 from prompt_toolkit.completion import Completer, Completion
+from prompt_toolkit.formatted_text import HTML
 from prompt_toolkit.history import FileHistory
 from prompt_toolkit.styles import Style
+
 
 from agent_cli.config import settings
 
@@ -21,6 +23,7 @@ class ChatBotCompleter(Completer):
         "/help": "Show available commands",
         "/models": "Show available models",
         "/switch": "Switch to a different model",
+        "/theme": "View or switch statusbar theme",
         "/thread": "Show current thread ID",
         "/threads": "List all saved threads",
         "/all-threads": "List all saved threads",
@@ -74,6 +77,17 @@ class ChatBotCompleter(Completer):
                             model_key, start_position=-len(arg), display_meta=model_val
                         )
 
+            elif cmd == "/theme":
+                from agent_cli.ui.statusline import THEMES
+
+                for theme_name in THEMES.keys():
+                    if theme_name.lower().startswith(arg.lower()):
+                        yield Completion(
+                            theme_name,
+                            start_position=-len(arg),
+                            display_meta="Statusbar Theme",
+                        )
+
             elif cmd == "/switch-thread":
                 from agent_cli.chat import get_all_threads
 
@@ -98,6 +112,7 @@ class ChatBotCompleter(Completer):
                     pass
             return
 
+
         # 3. Slash command completion
         if stripped.startswith("/"):
             for cmd, desc in self.COMMANDS.items():
@@ -118,19 +133,25 @@ def create_chat_session(
 
     custom_style = Style.from_dict(
         {
-            "prompt": "ansicyan bold",
-            "completion-menu.completion": "bg:#2b2b2b #ffffff",
-            "completion-menu.completion.current": "bg:#00aa00 #ffffff bold",
-            "completion-menu.meta.completion": "bg:#222222 #aaaaaa",
-            "completion-menu.meta.completion.current": "bg:#00aa00 #ffffff",
+            "": "#eceff1 bg:#202223",
+            "prompt": "#68f58a bold bg:#202223",
+            "placeholder": "#6c7086 italic bg:#202223",
+            "bottom-toolbar": "#a2a9ad bg:#101213",
+            "completion-menu.completion": "bg:#202223 #eceff1",
+            "completion-menu.completion.current": "bg:#303233 #68f58a bold",
+            "completion-menu.meta.completion": "bg:#181a1b #a2a9ad",
+            "completion-menu.meta.completion.current": "bg:#303233 #eceff1",
         }
     )
+
+    placeholder = HTML('<style fg="#6c7086" bg="#202223">Enter to send • Ctrl+J for newline • / for commands</style>')
 
     kwargs: dict[str, Any] = {
         "completer": completer,
         "complete_while_typing": True,
         "auto_suggest": AutoSuggestFromHistory(),
         "style": custom_style,
+        "placeholder": placeholder,
     }
 
     if config is not None:
@@ -140,3 +161,4 @@ def create_chat_session(
         kwargs["history"] = FileHistory(str(history_file))
 
     return PromptSession(**kwargs)
+

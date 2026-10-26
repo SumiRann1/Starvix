@@ -1,3 +1,4 @@
+from guardrails.errors import ValidationError
 from langchain_core.messages import AIMessage, SystemMessage
 from langchain_core.runnables import RunnableConfig
 
@@ -23,11 +24,11 @@ def make_chat_node(tools: list | None = None):
             if isinstance(human_content, str):
                 try:
                     check_input(human_content)
-                except ValueError as err:
+                except (ValueError, ValidationError):
                     return {
                         "messages": [
                             AIMessage(
-                                content=f"Security Refusal: {err}. Your prompt was flagged by Guardrails and cannot be processed."
+                                content="Security Refusal: Prompt Injection Attempt. Your prompt was flagged by Guardrails and cannot be processed."
                             )
                         ]
                     }

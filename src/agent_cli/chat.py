@@ -1,6 +1,7 @@
 import asyncio
 import builtins
 import sqlite3
+import subprocess
 import sys
 import time
 import uuid
@@ -12,6 +13,7 @@ from langgraph.store.base import BaseStore
 from langgraph.store.sqlite.base import SqliteStore
 from langgraph.types import Command
 from rich.console import Console
+from rich.panel import Panel
 
 from .ui import (
     MarkdownStreamRenderer,
@@ -21,6 +23,7 @@ from .ui import (
     display_welcome_banner,
     expand_file_mentions,
     export_thread_to_markdown,
+    play_startup_animation,
 )
 
 CYAN = "\033[96m"
@@ -31,7 +34,7 @@ BOLD = "\033[1m"
 DIM = "\033[2m"
 RESET = "\033[0m"
 
-from .config import set_current_model, settings
+from .config import set_current_model, set_theme, settings
 from .graph import build_graph
 from .tool.dev_tools import dev_tools
 from .tool.memory import clear_memories, delete_memory, get_all_memories, memory_tools
@@ -202,6 +205,26 @@ def _handle_command(
             )
         return True
 
+    elif cmd == "/theme":
+        from .ui.statusline import THEMES
+
+        if len(parts) < 2:
+            print(f"\n{BOLD}Available statusbar themes:{RESET}")
+            curr_theme = getattr(settings.statusbar, "theme", "tokyo_night")
+            for t_name, t_colors in THEMES.items():
+                active_mark = f" {GREEN}(active){RESET}" if t_name == curr_theme else ""
+                print(f"  - {CYAN}{t_name:<14}{RESET} {DIM}bg: {t_colors.get('bg')}{RESET}{active_mark}")
+            print(f"\n{DIM}Usage: /theme <theme_name>{RESET}\n")
+            return True
+
+        target_theme = parts[1].lower()
+        try:
+            set_theme(target_theme)
+            print(f"\n{GREEN}✓ Switched statusbar theme to: {target_theme}{RESET}\n")
+        except ValueError as err:
+            print(f"\n{YELLOW}{err}{RESET}\n")
+        return True
+
     elif cmd in ("/exit", "/quit"):
         return False
 
@@ -210,6 +233,45 @@ def _handle_command(
             f"{YELLOW}Unknown command '{cmd}'. Type /help to see available commands.{RESET}\n"
         )
         return True
+
+
+def _execute_direct_shell(cmd_str: str, console: Console | None = None) -> None:
+    """Execute a local shell command directly in the terminal without invoking LLM."""
+    con = console or Console()
+    clean_cmd = cmd_str.strip()
+    if not clean_cmd:
+        con.print(f"{YELLOW}Usage: !<command> (e.g. !git status, !pytest, !ls -la){RESET}\n")
+        return
+
+    start = time.perf_counter()
+    try:
+        res = subprocess.run(
+            clean_cmd,
+            shell=True,
+            capture_output=True,
+            text=True,
+            timeout=45,
+            check=False,
+        )
+        elapsed = time.perf_counter() - start
+        output = (res.stdout or "") + (res.stderr or "")
+        if not output.strip():
+            output = "[dim](Command completed with no output)[/dim]"
+
+        status_style = "bold green" if res.returncode == 0 else "bold red"
+        con.print(
+            Panel(
+                output.rstrip(),
+                title=f"[{status_style}]⚡ Shell: {clean_cmd} [exit: {res.returncode}, {elapsed:.2f}s][/{status_style}]",
+                border_style="cyan" if res.returncode == 0 else "red",
+                padding=(0, 1),
+            )
+        )
+        con.print()
+    except subprocess.TimeoutExpired:
+        con.print(f"[bold red]Command timed out after 45s: {clean_cmd}[/bold red]\n")
+    except Exception as exc:  # noqa: BLE001
+        con.print(f"[bold red]Shell execution error: {exc}[/bold red]\n")
 
 
 def _extract_chunk_text(chunk) -> str:
@@ -270,7 +332,9 @@ async def main(
                 tools=list_of_tools, checkpointer=checkpointer, store=store
             )
 
-            display_welcome_banner(CONFIG, tools=list_of_tools)
+            console = Console()
+            play_startup_animation(console=console, tools_count=len(list_of_tools))
+            display_welcome_banner(CONFIG, tools=list_of_tools, console=console)
 
             history_file = active_chkpt_db_path.parent / ".chat_history"
             session = create_chat_session(
@@ -281,18 +345,18 @@ async def main(
             )
 
             last_assistant_response = ""
-            console = Console()
             is_tty = hasattr(sys.stdout, "isatty") and sys.stdout.isatty()
 
             while True:
                 try:
                     if hasattr(builtins.input, "assert_called"):
-                        raw_input = input("You: ")
+                        raw_input = input("")
                     else:
-                        raw_input = await session.prompt_async("You: ")
+                        raw_input = await session.prompt_async("")
                 except (KeyboardInterrupt, EOFError):
                     print("\nExiting chat...")
                     break
+
 
                 user_query = raw_input.strip()
                 if not user_query:
@@ -310,6 +374,10 @@ async def main(
                         store=store,
                         last_response=last_assistant_response,
                     )
+                    continue
+
+                if user_query.startswith("!"):
+                    _execute_direct_shell(user_query[1:], console=console)
                     continue
 
                 # Expand @file mentions with workspace file contents
@@ -452,6 +520,14 @@ async def main(
                                     print("─" * 60 + "\n")
                                 else:
                                     print(f"{CYAN}[Node: {name}]{RESET} Completed")
+                                    if name == "chat" and not last_assistant_response:
+                                        node_out = data.get("output", {})
+                                        if isinstance(node_out, dict):
+                                            for msg in node_out.get("messages", []):
+                                                content = getattr(msg, "content", "")
+                                                if content and getattr(msg, "type", None) == "ai":
+                                                    renderer.write_chunk(content)
+                                                    last_assistant_response = renderer.finish()
 
                     await run_stream(
                         {"messages": [HumanMessage(content=expanded_query)]}

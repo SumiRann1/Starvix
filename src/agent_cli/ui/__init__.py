@@ -1,5 +1,6 @@
 """UI and interaction enhancements for Agent CLI (statusline, autocomplete, streaming renderer, context injection, export, banner)."""
 
+from .animation import play_startup_animation
 from .banner import display_help_menu, display_welcome_banner
 from .completer import ChatBotCompleter, create_chat_session
 from .context import expand_file_mentions, get_workspace_files
@@ -18,4 +19,6 @@ __all__ = [
     "export_thread_to_markdown",
     "get_statusline",
     "get_workspace_files",
+    "play_startup_animation",
 ]
+

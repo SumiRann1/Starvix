@@ -1,5 +1,6 @@
 from unittest.mock import Mock, patch
 
+# pyrefly: ignore[missing-import]
 import pytest
 from guardrails.errors import ValidationError
 from langchain_core.messages import AIMessage, HumanMessage
@@ -139,7 +140,7 @@ def test_sanitize_output_preserves_normal_text():
     ],
 )
 def test_prompt_injection_detection(injected_prompt):
-    with pytest.raises(ValueError, match="Prompt Injection Attempt"):
+    with pytest.raises(ValidationError, match="Prompt Injection Attempt"):
         check_input(injected_prompt)
 
 

@@ -54,4 +54,26 @@ def set_current_model(key: str):
     settings.current_model = settings.models[key]
 
 
+def set_theme(theme_name: str) -> bool:
+    """Set the statusbar theme dynamically and persist to config.yaml."""
+    from agent_cli.ui.statusline import THEMES
+
+    if theme_name not in THEMES:
+        raise ValueError(f"Theme '{theme_name}' not found. Available: {', '.join(THEMES.keys())}")
+    settings.statusbar.theme = theme_name
+
+    try:
+        config_path = ROOT / "config.yaml"
+        if config_path.exists():
+            with config_path.open("r") as f:
+                data = yaml.safe_load(f) or {}
+            data.setdefault("statusbar", {})["theme"] = theme_name
+            with config_path.open("w") as f:
+                yaml.safe_dump(data, f, sort_keys=False)
+    except Exception:  # noqa: BLE001
+        pass
+    return True
+
+
 settings = load_settings()
+

@@ -12,6 +12,7 @@ def sanitize_output(text: str) -> str:
 
     try:
         result = output_guard.validate(text)
-        return result.validated_output or text
+        return result.validated_output if result.validated_output is not None else text
+
     except Exception:  # noqa: BLE001
         return text

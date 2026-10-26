@@ -1,27 +1,16 @@
-current_model: "openrouter:nvidia/nemotron-3-ultra-550b-a55b:free"
+current_model: openrouter:nvidia/nemotron-3-ultra-550b-a55b:free
 temperature: 0.7
-workspace_dir: "workspaces"
-data_dir: "data"
-export_dir: "exports"
-
+workspace_dir: workspaces
+data_dir: data
+export_dir: exports
 models:
-  gpt_oss_20b: "groq:openai/gpt-oss-20b"
-  gpt_oss_120b: "groq:openai/gpt-oss-120b"
-  qwen_3_8_27b: "groq:qwen/qwen3.8-27b"
-  gemini_flash_2_5_lite: "google:gemini-2.5-flash-lite"
-  gemini_flash_2_5: "google:gemini-2.5-flash"
-  nemotron_3_ultra: "openrouter:nvidia/nemotron-3-ultra-550b-a55b:free"
-  nemotron_3_super_vl: "openrouter:nvidia/nemotron-3.5-super-vl:free"
-  nemotron_3_super_120b: "openrouter:nvidia/nemotron-3-super-120b-a12b:free"
-
-# Statusbar appearance & theme
-# Presets: tokyo_night, catppuccin, dracula, nord, monokai, cyberpunk, matrix, minimal
+  gpt_oss_20b: groq:openai/gpt-oss-20b
+  gpt_oss_120b: groq:openai/gpt-oss-120b
+  qwen_3_8_27b: groq:qwen/qwen3.8-27b
+  gemini_flash_2_5_lite: google:gemini-2.5-flash-lite
+  gemini_flash_2_5: google:gemini-2.5-flash
+  nemotron_3_ultra: openrouter:nvidia/nemotron-3-ultra-550b-a55b:free
+  nemotron_3_super_vl: openrouter:nvidia/nemotron-3.5-super-vl:free
+  nemotron_3_super_120b: openrouter:nvidia/nemotron-3-super-120b-a12b:free
 statusbar:
-  theme: "catppuccin"
-  # Optional custom color overrides (hex e.g. #1e1e2e or ANSI color name):
-  # bg: "#1a1b26"
-  # fg: "#c0caf5"
-  # model_color: "#9ece6a"
-  # thread_color: "#7aa2f7"
-  # memory_color: "#e0af68"
-  # help_color: "#bb9af7"
+  theme: monokai
