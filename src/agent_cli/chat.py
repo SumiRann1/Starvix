@@ -6,6 +6,7 @@ import sys
 import time
 import uuid
 from pathlib import Path
+from typing import Any
 
 from langchain_core.messages import HumanMessage
 from langgraph.checkpoint.sqlite.aio import AsyncSqliteSaver
@@ -17,13 +18,26 @@ from rich.panel import Panel
 
 from .ui import (
     MarkdownStreamRenderer,
+    clear_screen,
     copy_to_clipboard,
     create_chat_session,
     display_help_menu,
     display_welcome_banner,
     expand_file_mentions,
     export_thread_to_markdown,
+    get_current_theme,
+    get_prompt_prefix,
     play_startup_animation,
+    render_assistant_footer,
+    render_assistant_header,
+    render_graph_step,
+    render_hitl_approval_card,
+    render_telemetry_badge,
+    render_themes_table,
+    render_tool_end,
+    render_tool_start,
+    render_user_message,
+    update_session_theme,
 )
 
 CYAN = "\033[96m"
@@ -72,7 +86,10 @@ def _handle_command(
     db_path: Path | str | None = None,
     store: BaseStore | None = None,
     last_response: str | None = None,
+    session: Any = None,
+    console: Console | None = None,
 ) -> bool:
+
     """Handle slash commands. Returns True if handled, False otherwise."""
     parts = input_query.strip().split()
     cmd = parts[0].lower()
@@ -206,27 +223,32 @@ def _handle_command(
         return True
 
     elif cmd == "/theme":
-        from .ui.statusline import THEMES
+        con = console or Console()
+        curr_theme = getattr(settings.statusbar, "theme", "tokyo_night")
 
         if len(parts) < 2:
-            print(f"\n{BOLD}Available statusbar themes:{RESET}")
-            curr_theme = getattr(settings.statusbar, "theme", "tokyo_night")
-            for t_name, t_colors in THEMES.items():
-                active_mark = f" {GREEN}(active){RESET}" if t_name == curr_theme else ""
-                print(f"  - {CYAN}{t_name:<14}{RESET} {DIM}bg: {t_colors.get('bg')}{RESET}{active_mark}")
-            print(f"\n{DIM}Usage: /theme <theme_name>{RESET}\n")
+            render_themes_table(curr_theme, console=con)
             return True
 
         target_theme = parts[1].lower()
         try:
             set_theme(target_theme)
-            print(f"\n{GREEN}✓ Switched statusbar theme to: {target_theme}{RESET}\n")
+            if session is not None:
+                update_session_theme(session)
+            con.print(f"\n[bold green]✓ Switched statusbar theme to: {target_theme}[/bold green]\n")
+            render_themes_table(target_theme, console=con)
         except ValueError as err:
-            print(f"\n{YELLOW}{err}{RESET}\n")
+            con.print(f"\n[bold yellow]{err}[/bold yellow]\n")
+        return True
+
+
+    elif cmd == "/clear":
+        clear_screen(config=config, console=Console())
         return True
 
     elif cmd in ("/exit", "/quit"):
         return False
+
 
     else:
         print(
@@ -352,7 +374,7 @@ async def main(
                     if hasattr(builtins.input, "assert_called"):
                         raw_input = input("")
                     else:
-                        raw_input = await session.prompt_async("")
+                        raw_input = await session.prompt_async(get_prompt_prefix())
                 except (KeyboardInterrupt, EOFError):
                     print("\nExiting chat...")
                     break
@@ -373,8 +395,11 @@ async def main(
                         db_path=active_chkpt_db_path,
                         store=store,
                         last_response=last_assistant_response,
+                        session=session,
+                        console=console,
                     )
                     continue
+
 
                 if user_query.startswith("!"):
                     _execute_direct_shell(user_query[1:], console=console)
@@ -382,7 +407,9 @@ async def main(
 
                 # Expand @file mentions with workspace file contents
                 expanded_query, attached_files = expand_file_mentions(user_query)
-                if attached_files:
+                if is_tty:
+                    render_user_message(user_query, attached_files=attached_files, console=console)
+                elif attached_files:
                     print(
                         f"{DIM}[Context Attached: {', '.join(attached_files)}]{RESET}"
                     )
@@ -472,6 +499,7 @@ async def main(
 
                                 elapsed_gen = time.perf_counter() - start_time
                                 speed_str = ""
+                                tok_per_sec = None
                                 if (
                                     isinstance(c_tokens, (int, float))
                                     and c_tokens > 0
@@ -480,6 +508,18 @@ async def main(
                                     tok_per_sec = c_tokens / elapsed_gen
                                     speed_str = f" ({tok_per_sec:.1f} tok/s)"
 
+                                if is_tty:
+                                    render_telemetry_badge(
+                                        model=model_name,
+                                        provider=provider,
+                                        prompt_tokens=p_tokens,
+                                        completion_tokens=c_tokens,
+                                        total_tokens=t_tokens,
+                                        tok_per_sec=tok_per_sec,
+                                        elapsed_seconds=elapsed_gen,
+                                        finish_reason=finish,
+                                        console=console,
+                                    )
                                 print(
                                     f"{DIM}[Model Stats] {model_name}{provider_str}{temp_str} | "
                                     f"tokens: prompt={p_tokens}, completion={c_tokens}, total={t_tokens}{speed_str} | "
@@ -492,6 +532,8 @@ async def main(
                                         f"[bold yellow]Executing tool: {name}...[/bold yellow]"
                                     )
                                 tool_input = data.get("input", "")
+                                if is_tty:
+                                    render_tool_start(name, tool_input, console=console)
                                 print(
                                     f"\n{YELLOW}[Tool: {name}] Input:{RESET} {tool_input}"
                                 )
@@ -504,6 +546,8 @@ async def main(
                                     tool_output = tool_out.content
                                 else:
                                     tool_output = str(tool_out) if tool_out else ""
+                                if is_tty:
+                                    render_tool_end(name, tool_output, console=console)
                                 print(
                                     f"{YELLOW}[Tool: {name}] Output:{RESET} {tool_output}"
                                 )
@@ -557,19 +601,14 @@ async def main(
                                 spinner = None
 
                             payload = hitl.value
-                            msg = (
-                                payload.get("message")
-                                if isinstance(payload, dict)
-                                else str(payload)
-                            )
+                            msg = payload.get("message") if isinstance(payload, dict) else str(payload)
+                            if is_tty:
+                                render_hitl_approval_card(payload, console=console)
                             print(f"\n{YELLOW}⚠️  [HITL Approval Required]{RESET} {msg}")
 
+
                             if hasattr(builtins.input, "assert_called"):
-                                choice = (
-                                    input(f"{BOLD}Approve action? [y/N]: {RESET}")
-                                    .strip()
-                                    .lower()
-                                )
+                                choice = (input(f"{BOLD}Approve action? [y/N]: {RESET}").strip().lower())
                             else:
                                 choice = (
                                     (

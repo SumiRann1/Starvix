@@ -5,101 +5,14 @@ from prompt_toolkit.formatted_text import HTML
 
 from agent_cli.config import settings
 
-THEMES: dict[str, dict[str, str]] = {
-    "strands": {
-        "bg": "#101213",
-        "fg": "#eceff1",
-        "model_color": "#eceff1",
-        "thread_color": "#a2a9ad",
-        "memory_color": "#68f58a",
-        "help_color": "#68f58a",
-    },
-    "tokyo_night": {
-        "bg": "#1a1b26",
-        "fg": "#c0caf5",
-        "model_color": "#9ece6a",
-        "thread_color": "#7aa2f7",
-        "memory_color": "#e0af68",
-        "help_color": "#bb9af7",
-    },
-    "catppuccin": {
-        "bg": "#1e1e2e",
-        "fg": "#cdd6f4",
-        "model_color": "#a6e3a1",
-        "thread_color": "#89b4fa",
-        "memory_color": "#f9e2af",
-        "help_color": "#fab387",
-    },
-    "dracula": {
-        "bg": "#282a36",
-        "fg": "#f8f8f2",
-        "model_color": "#50fa7b",
-        "thread_color": "#8be9fd",
-        "memory_color": "#f1fa8c",
-        "help_color": "#ff79c6",
-    },
-    "nord": {
-        "bg": "#2e3440",
-        "fg": "#eceff4",
-        "model_color": "#a3be8c",
-        "thread_color": "#88c0d0",
-        "memory_color": "#ebcb8b",
-        "help_color": "#b48ead",
-    },
-    "monokai": {
-        "bg": "#272822",
-        "fg": "#f8f8f2",
-        "model_color": "#a6e22e",
-        "thread_color": "#66d9ef",
-        "memory_color": "#e6db74",
-        "help_color": "#fd971f",
-    },
-    "cyberpunk": {
-        "bg": "#0d0221",
-        "fg": "#00f0ff",
-        "model_color": "#05ffa1",
-        "thread_color": "#00f0ff",
-        "memory_color": "#ffe600",
-        "help_color": "#ff2a6d",
-    },
-    "matrix": {
-        "bg": "#0d1117",
-        "fg": "#00ff66",
-        "model_color": "#39ff14",
-        "thread_color": "#20c20e",
-        "memory_color": "#50c878",
-        "help_color": "#00ffcc",
-    },
-    "minimal": {
-        "bg": "#1c1c1c",
-        "fg": "#e0e0e0",
-        "model_color": "#4ade80",
-        "thread_color": "#38bdf8",
-        "memory_color": "#facc15",
-        "help_color": "#f472b6",
-    },
-}
+from agent_cli.ui.theme import THEMES, get_current_theme
 
 
 def resolve_statusbar_colors(sb_config=None) -> dict[str, str]:
     """Resolve statusbar theme and explicit color overrides from configuration."""
-    sb = sb_config if sb_config is not None else getattr(settings, "statusbar", None)
-    theme_name = getattr(sb, "theme", "strands") if sb else "strands"
-    colors = dict(THEMES.get(theme_name, THEMES["strands"]))
+    theme = get_current_theme(sb_config)
+    return theme.to_dict()
 
-    if sb:
-        for key in (
-            "bg",
-            "fg",
-            "model_color",
-            "thread_color",
-            "memory_color",
-            "help_color",
-        ):
-            val = getattr(sb, key, None)
-            if val:
-                colors[key] = val
-    return colors
 
 
 def get_statusline(config: dict, store: BaseStore | None = None) -> HTML:
@@ -147,14 +60,15 @@ def get_statusline(config: dict, store: BaseStore | None = None) -> HTML:
         path_display = "workspace"
 
     c = resolve_statusbar_colors()
-    meter = "░░░░░░░░░"
+    div = f'<style fg="{c["dim"]}">│</style>'
 
     return HTML(
         f'<style bg="{c["bg"]}" fg="{c["fg"]}">'
-        f'<style fg="{c["model_color"]}"><b>{model_display}</b></style> '
-        f'<style fg="#646c71">•</style> <style fg="{c["thread_color"]}">Thread: {thread_display}</style> '
-        f'<style fg="#646c71">•</style> <b>Memories:</b> <style fg="{c["memory_color"]}">{mem_count}</style> <style fg="#646c71">{meter}</style> '
-        f'<style fg="#646c71">-</style> <style fg="#a2a9ad">{path_display}</style>  '
-        f'<style fg="{c["help_color"]}">/help</style>'
+        f' <style fg="{c["primary"]}"><b>✦ Starvix</b></style> '
+        f'{div} <style fg="{c["model_color"]}"><b>{model_display}</b></style> '
+        f'{div} <style fg="{c["thread_color"]}">Thread: {thread_display}</style> '
+        f'{div} <b>Memories:</b> <style fg="{c["memory_color"]}">{mem_count}</style> '
+        f'{div} <style fg="{c["dim"]}">{path_display}</style> '
+        f'{div} <style fg="{c["help_color"]}">/help</style> '
         f"</style>"
     )

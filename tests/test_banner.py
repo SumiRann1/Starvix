@@ -17,7 +17,7 @@ def test_display_welcome_banner():
     display_welcome_banner(config, tools=[mock_tool], console=con)
     output = out.getvalue()
 
-    assert "FORGE" in output
+    assert "STARVIX" in output
     assert "test-model-42" in output
     assert "Thread: thread-abc-123" in output
     assert "web_search" in output
@@ -31,7 +31,7 @@ def test_display_welcome_banner_defaults():
     display_welcome_banner({}, tools=[], console=con)
     output = out.getvalue()
 
-    assert "FORGE" in output
+    assert "STARVIX" in output
     assert "None" in output
 
 

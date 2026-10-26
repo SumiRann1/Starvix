@@ -13,7 +13,7 @@ from agent_cli.ui.statusline import THEMES
 
 def test_render_logo():
     logo = render_logo(0)
-    assert "FORGE" in logo.plain or "███████" in logo.plain
+    assert "STARVIX" in logo.plain or "███████" in logo.plain
 
 
 def test_play_startup_animation_non_tty():
@@ -26,10 +26,11 @@ def test_play_startup_animation_non_tty():
 
 
 def test_play_startup_animation_disabled_via_env(monkeypatch):
-    monkeypatch.setenv("FORGE_NO_ANIMATION", "1")
+    monkeypatch.setenv("STARVIX_NO_ANIMATION", "1")
     out = StringIO()
     con = Console(file=out, color_system=None, width=120)
     play_startup_animation(console=con, speed=10.0, tools_count=5)
+
 
 
 def test_set_theme_valid():

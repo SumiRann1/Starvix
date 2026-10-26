@@ -32,11 +32,13 @@ class ChatBotCompleter(Completer):
         "/list-memories": "List all memories",
         "/clear-memories": "Clear all memories",
         "/delete-memory": "Delete a memory by ID",
+        "/clear": "Clear terminal screen",
         "/copy": "Copy last assistant response to clipboard",
         "/export": "Export current thread to Markdown file",
         "/exit": "Exit the chat",
         "/quit": "Exit the chat",
     }
+
 
     def __init__(
         self, db_path: Path | str | None = None, store: BaseStore | None = None
@@ -122,6 +124,55 @@ class ChatBotCompleter(Completer):
                     )
 
 
+def get_prompt_prefix(theme=None) -> HTML:
+    """Generate modern, themed prompt prefix glyphs (✦ starvix ❯)."""
+    from agent_cli.ui.theme import get_current_theme
+
+    t = theme or get_current_theme()
+    return HTML(
+        f'<style fg="{t.primary}"><b>✦ </b></style>'
+        f'<style fg="{t.accent}"><b>starvix </b></style>'
+        f'<style fg="{t.primary}"><b>❯ </b></style>'
+    )
+
+
+def get_prompt_placeholder(theme=None) -> HTML:
+    """Generate subtle, modern placeholder hint text without background bounding boxes."""
+    from agent_cli.ui.theme import get_current_theme
+
+    t = theme or get_current_theme()
+    return HTML(
+        f'<style fg="{t.dim}">Ask Starvix anything... (/ for commands, @ for files)</style>'
+    )
+
+
+def get_prompt_style(theme=None) -> Style:
+    from agent_cli.ui.theme import get_current_theme
+
+    t = theme or get_current_theme()
+    return Style.from_dict(
+        {
+            "": f"{t.fg}",
+            "prompt": f"{t.primary} bold",
+            "placeholder": f"{t.dim} italic",
+            "bottom-toolbar": f"{t.fg} bg:{t.bg}",
+            "completion-menu.completion": f"bg:{t.bg} {t.fg}",
+            "completion-menu.completion.current": f"bg:{t.panel_border} {t.primary} bold",
+            "completion-menu.meta.completion": f"bg:{t.bg} {t.dim}",
+            "completion-menu.meta.completion.current": f"bg:{t.panel_border} {t.fg}",
+        }
+    )
+
+
+def update_session_theme(session: PromptSession) -> None:
+    """Dynamically update prompt session style and placeholder to match the active theme."""
+    from agent_cli.ui.theme import get_current_theme
+
+    theme = get_current_theme()
+    session.style = get_prompt_style(theme)
+    session.placeholder = get_prompt_placeholder(theme)
+
+
 def create_chat_session(
     history_file: Path | str | None = None,
     db_path: Path | str | None = None,
@@ -131,20 +182,11 @@ def create_chat_session(
     """Create a configured PromptSession with persistent history, auto-suggest, autocomplete, and statusline."""
     completer = ChatBotCompleter(db_path=db_path, store=store)
 
-    custom_style = Style.from_dict(
-        {
-            "": "#eceff1 bg:#202223",
-            "prompt": "#68f58a bold bg:#202223",
-            "placeholder": "#6c7086 italic bg:#202223",
-            "bottom-toolbar": "#a2a9ad bg:#101213",
-            "completion-menu.completion": "bg:#202223 #eceff1",
-            "completion-menu.completion.current": "bg:#303233 #68f58a bold",
-            "completion-menu.meta.completion": "bg:#181a1b #a2a9ad",
-            "completion-menu.meta.completion.current": "bg:#303233 #eceff1",
-        }
-    )
+    from agent_cli.ui.theme import get_current_theme
 
-    placeholder = HTML('<style fg="#6c7086" bg="#202223">Enter to send • Ctrl+J for newline • / for commands</style>')
+    theme = get_current_theme()
+    custom_style = get_prompt_style(theme)
+    placeholder = get_prompt_placeholder(theme)
 
     kwargs: dict[str, Any] = {
         "completer": completer,

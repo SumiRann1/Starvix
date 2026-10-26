@@ -36,12 +36,12 @@ def load_settings() -> Settings:
 
     settings = Settings(**config)
     settings.workspace_dir = (
-        Path(__file__).home() / ".forge/" / Path(settings.workspace_dir)
+        Path(__file__).home() / ".starvix/" / Path(settings.workspace_dir)
     )
     settings.workspace_dir.mkdir(parents=True, exist_ok=True)
-    settings.data_dir = Path(__file__).home() / ".forge/" / Path(settings.data_dir)
+    settings.data_dir = Path(__file__).home() / ".starvix/" / Path(settings.data_dir)
     settings.data_dir.mkdir(parents=True, exist_ok=True)
-    settings.export_dir = Path(__file__).home() / ".forge/" / Path(settings.export_dir)
+    settings.export_dir = Path(__file__).home() / ".starvix/" / Path(settings.export_dir)
     settings.export_dir.mkdir(parents=True, exist_ok=True)
 
     return settings

@@ -4,10 +4,11 @@ requires = ["setuptools>=68"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "forge-agent-runtime"
+name = "starvix-agent-runtime"
 version = "0.1.0"
-description = "A local-first LangGraph agent runtime"
+description = "Starvix — a local-first LangGraph agent runtime"
 requires-python = ">=3.11"
+
 dependencies = [
     "langgraph",
     "langchain",
@@ -39,7 +40,7 @@ providers = [
 ]
 
 [project.scripts]
-forge = "agent_cli.cli:app"
+starvix = "agent_cli.cli:app"
 
 [tool.setuptools.packages.find]
 where = ["src"]

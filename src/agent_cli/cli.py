@@ -7,8 +7,8 @@ from .chat import get_all_threads
 from .chat import main as chat_main
 
 app = typer.Typer(
-    name="forge",
-    help="Forge — a local-first LangGraph agent runtime.",
+    name="starvix",
+    help="Starvix — a local-first LangGraph agent runtime.",
     no_args_is_help=True,
     rich_markup_mode="rich",
 )
@@ -18,14 +18,14 @@ console = Console()
 
 @app.callback()
 def main():
-    """Forge — a local-first LangGraph agent runtime."""
+    """Starvix — a local-first LangGraph agent runtime."""
     return
 
 
 @app.command()
 def status():
-    """Show Forge runtime status."""
-    console.print("[bold]Forge Agent Runtime[/bold]")
+    """Show Starvix runtime status."""
+    console.print("[bold]Starvix Agent Runtime[/bold]")
     console.print("CLI initialized successfully.")
     console.print("Model execution and persistent storage are separate milestones.")
 
@@ -40,7 +40,7 @@ def threads():
     console.print("[bold]Saved conversation threads:[/bold]")
     for tid in saved_threads:
         console.print(f"  - [cyan]{tid}[/cyan]")
-    console.print("\n[dim]To resume a thread, run:[/dim] forge chat --thread <id>")
+    console.print("\n[dim]To resume a thread, run:[/dim] starvix chat --thread <id>")
 
 
 @app.command()
@@ -52,11 +52,12 @@ def chat(
         help="Thread ID to use or resume. If omitted, a new random session is created.",
     ),
 ):
-    """Start an interactive Forge chat session."""
+    """Start an interactive Starvix chat session."""
     try:
         asyncio.run(chat_main(thread_id=thread))
     except KeyboardInterrupt:
         console.print("\n[yellow]Chat interrupted.[/yellow]")
+
 
 
 if __name__ == "__main__":

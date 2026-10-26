@@ -3,6 +3,7 @@ temperature: 0.7
 workspace_dir: workspaces
 data_dir: data
 export_dir: exports
+sandbox_dir: configs
 models:
   gpt_oss_20b: groq:openai/gpt-oss-20b
   gpt_oss_120b: groq:openai/gpt-oss-120b
@@ -13,4 +14,4 @@ models:
   nemotron_3_super_vl: openrouter:nvidia/nemotron-3.5-super-vl:free
   nemotron_3_super_120b: openrouter:nvidia/nemotron-3-super-120b-a12b:free
 statusbar:
-  theme: monokai
+  theme: strands
