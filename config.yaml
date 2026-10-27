@@ -14,4 +14,4 @@ models:
   nemotron_3_super_vl: openrouter:nvidia/nemotron-3.5-super-vl:free
   nemotron_3_super_120b: openrouter:nvidia/nemotron-3-super-120b-a12b:free
 statusbar:
-  theme: strands
+  theme: catppuccin
